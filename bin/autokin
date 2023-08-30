@@ -44,6 +44,7 @@ program
     .option('-w, --html [file-path]', 'Generate test result in html file')
     .option('-c, --clean', 'Deletes existing reports and snapshots before running new test.')
     .option('-x, --ci', 'Run on CI Environment.')
+    .option('-cs, --customSteps [path]', 'Specify where custom steps are located')
     .parse(process.argv);
 
 let clean = (folder) => {
