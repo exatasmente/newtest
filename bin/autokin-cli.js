@@ -12,7 +12,6 @@ module.exports.default = function ({ specs, tags, formatter, junit, variables, t
 
     if (customSteps && !fs.existsSync(__dirname + '/../' + customSteps)) throw new Error(`Custom steps path ${__dirname  +'/../' + customSteps} does not exist.`);
 
-    console.log(`Autokin path: ${customSteps}`);
 
     if (!fs.existsSync('reports/snapshots')) {
         fs.mkdirSync('reports/snapshots', { recursive: true });
@@ -34,10 +33,6 @@ module.exports.default = function ({ specs, tags, formatter, junit, variables, t
 
     cliOptions = cliOptions.concat([`--require=${__dirname}/../custom-steps`]);
     if (customSteps) cliOptions = cliOptions.concat([`--require=${__dirname+ '/../'+ customSteps}`]);
-    
-
-
-    console.log(cliOptions);        
 
     if (html)  { 
         const targetHtmlPath = typeof (html) == 'boolean' ? 'reports/autokin-result.html' : html;

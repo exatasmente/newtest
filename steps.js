@@ -1,6 +1,6 @@
 'use strict';
 const { defineParameterType } = require('cucumber');
-const { Given, When, Then, Expression, Store, WebBuilder, ApplyExpression } = require('./custom-steps');
+const { Given, When, Then, Expression } = require('./custom-steps');
 
 /**
  *  const app = require('./container');	
@@ -14,47 +14,49 @@ const { Given, When, Then, Expression, Store, WebBuilder, ApplyExpression } = re
  * 
 * */
 
-
-Expression('$generator:{type}', (type) => {
-    console.log(type);
-})
-
 Expression('$not:{string}', (value) => {
     return `not ${value}`;
 });
 
 Expression('$xPath:{string}', (value) => {
     return `xpath ${value}`;
-});
+}, ';');
 
-const openPage = async (url) => {
+Expression('$getElAttr:{selector};{attribute}', async (selector, attribute, Page) => {
+   const value = await Page.$eval(selector, (el, attribute) => {
+        return el[attribute] || el.getAttribute(attribute);
+    }, attribute);
+    return value;
+}, ';');
+
+const openPage = async (url, WebBuilder) => {
     await WebBuilder.host(url);
     await WebBuilder.page.goto(url);
 
 };
 
-Given('I on page {string}', async (page) => {
-    await openPage(page);   
+Given('I on page {string}', async (page, WebBuilder) => {
+    await openPage(page, WebBuilder);   
 });
 
-Given('I open page {string}', async (page) => {
-    await openPage(page);
+Given('I open page {string}', async (page, WebBuilder) => {
+    await openPage(page, WebBuilder);
 });
 
-Given('I open {string}', async (page) => {
-    await openPage(page);
+Given('I open {string}', async (page, WebBuilder) => {
+    await openPage(page, WebBuilder);
 });
 
-Given('I navigate to {string}', async (page) => {
-    await openPage(page);
+Given('I navigate to {string}', async (page, WebBuilder) => {
+    await openPage(page, WebBuilder);
 });
 
-Given('I navigate {string}', async (page) => {
+Given('I navigate {string}', async (page, WebBuilder) => {
     await WebBuilder.page.goto(page);
 });
 
 
-Given('I mock response {string}', async (selector) => {
+Given('I mock response {string}', async (selector, WebBuilder) => {
     const [method, url, value] = selector.split(',');
     await WebBuilder.mock({
         method,
@@ -63,17 +65,15 @@ Given('I mock response {string}', async (selector) => {
     });
 })
 
-Given('I use the session {string}', async (sessionName) => {
+Given('I use the session {string}', async (sessionName, WebBuilder, Store) => {
     const fs = require('fs');
     try {
         const json = JSON.parse(fs.readFileSync(`./sessions/${sessionName}.json`));
         Object.keys(json).forEach(key => {
             Store.set(sessionName + ':'+key, json[key]);
         });
-
-        console.log('json', json);
     } catch (error) {
-        console.log('error', error);
+        throw new Error(`Session ${sessionName} does not exists`);
     }
 
 
@@ -81,42 +81,47 @@ Given('I use the session {string}', async (sessionName) => {
 });
 
 
-When('I click {string}', async (selector) => {
+When('I click {string}', async (selector, WebBuilder) => {
     const xpath = selector.startsWith('xpath');
     selector = xpath ? selector.split('xpath ')[1] : selector;
     await WebBuilder.click(selector, xpath);
     
 });
 
-When('I press {string}', async (value) => {
+When('I press {string}', async (value, WebBuilder) => {
     await WebBuilder.page.keyboard.press(value);
 })
 
-When('I type {string} {string}', async (value, selector) => {
+When('I type {string} {string}', async (value, selector, WebBuilder) => {
     await WebBuilder.type(selector, value);
 
 });    
 
-When('I wait for networkidle0', async () => {
+When('I select {string} {string}', async (value, selector, WebBuilder) => {
+    await WebBuilder.select(selector, value);
+});
+
+
+When('I wait for networkidle0', async (WebBuilder) => {
     await WebBuilder.page.waitForNavigation({
         waitUntil: 'networkidle0',
     });
 });
 
-Then('I store the session {string}', async (sessionName) => {
+Then('I store the session {string}', async (sessionName, WebBuilder) => {
     const json = await WebBuilder.storeSession(sessionName)
 
     const fs = require('fs');
     fs.writeFileSync(`./sessions/${sessionName}.json`, JSON.stringify(json));
 });
 
-Then('I store the html {string}', async (path) => {
+Then('I store the html {string}', async (path, WebBuilder) => {
     const html = await WebBuilder.page.content();
     const fs = require('fs');
 
     fs.writeFileSync(path + '.html', html);
 });
-Then('I wait for element {string}', async (selector) => {
+Then('I wait for element {string}', async (selector, WebBuilder) => {
     const xpath = selector.startsWith('xpath');
     selector = xpath ? selector.split('xpath ')[1] : selector;
     await (new  Promise((resolve, reject) => {
@@ -140,12 +145,11 @@ Then('I wait for element {string}', async (selector) => {
 
 });
 
-Then('I take screenshot {string}', async (path) => {
-    console.log('path', path);
+Then('I take screenshot {string}', async (path, WebBuilder) => {
     await WebBuilder.screenshot(path);
 });
 
-Then('I should see text {string}', async (selector) => {
+Then('I should see text {string}', async (selector, WebBuilder) => {
 
     const xpath = "//*[contains(text(), '" + selector + "')]"
     const exists = await WebBuilder.exists(xpath, true);
@@ -156,11 +160,9 @@ Then('I should see text {string}', async (selector) => {
     
 });
 
-Then('I should see {string}', async (selector) => {
+Then('I should see {string}', async (selector, WebBuilder) => {
     const xpath = selector.startsWith('xpath');
     selector = xpath ? selector.split('xpath ')[1] : selector;
-
-    console.log('selector', selector, xpath);
     const exists = await WebBuilder.exists(selector, xpath);
     
     await WebBuilder.screenshot('test');
@@ -170,7 +172,7 @@ Then('I should see {string}', async (selector) => {
     
 });
 
-Then('I should be on {string}', async (url) => {
+Then('I should be on {string}', async (url, WebBuilder) => {
     const currentUrl = await WebBuilder.page.url();
     if (currentUrl !== url) {
         throw new Error(`Expected to be on ${url} but it is on ${currentUrl}`);
@@ -178,11 +180,9 @@ Then('I should be on {string}', async (url) => {
 });
 
 
-Then('I should not see {string}', async (selector) => {
+Then('I should not see {string}', async (selector, WebBuilder) => {
     const xpath = selector.startsWith('xpath');
     selector = xpath ? selector.split('xpath ')[1] : selector;
-
-    console.log('selector', selector, xpath);
     const exists = await WebBuilder.exists(selector, xpath);
     
     
