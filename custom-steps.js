@@ -169,10 +169,7 @@ const ApplyExpression = async (pattern) => {
     const callbackVariables = expression.callback.toString().match(/\((.*?)\)/)[1].split(',').map(arg => arg.trim());
     
     for (let i = 0; i < variables.length; i++) {
-        let variable = variables[i];
-        variable = await ApplyExpression(variable);
-        variables[i] = variable;
-
+        variables[i] = await ApplyExpression(variables[i]);
     }
     callbackVariables.map((variable, index) => {
         if (app.has(variable)) {
@@ -193,7 +190,6 @@ const ApplyExpression = async (pattern) => {
 Expression('$fixture:{string}', (fixture) => {
     // example of fixture value: name_of_fixture_file.attribute_name
     // another example: name_of_fixture_file.attribute_name,another_attribute_name
-    console.log('fixture', fixture);
     const [fixtureName, ...attributes] = fixture.split('.');
     let value = Store.storage[fixtureName];
     if (!value) {

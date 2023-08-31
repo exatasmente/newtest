@@ -7,24 +7,31 @@ Expression('$not:{string}', (value) => {
 });
 
 Expression('$xPath:{string}', async (xpath, Page) => {
-
-    const ids = await Page.evaluate(xpath => {
+    const id = await Page.evaluate(xpath => {
         function getElementByXpath(path) {
             return document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
         }
-
+        
         const element = getElementByXpath(xpath);
+        
         if (!element) {
             return null;
         }
-        const id = Math.random().toString(36).substring(7);
-        element.setAttribute('data-autokin', id);
+
+        let id = element.getAttribute('data-autokin');
+        if (!id) {
+            id = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            element.setAttribute('data-autokin', id);
+        }
 
         return id;
     }, xpath);
 
+    if (!id) {
+        throw new Error(`Element with xpath ${xpath} does not exists`);
+    }
 
-    return `[data-autokin="${ids}"]`
+    return `[data-autokin="${id}"]`
 
 }, ';');
 
@@ -99,6 +106,10 @@ When('I click {string}', async (selector, WebBuilder) => {
     await WebBuilder.click(selector, xpath);
     
 });
+
+When('I setTimeout of {int} secs', async (seconds) => {
+    await new Promise(resolve => setTimeout(resolve, seconds * 1000));
+})
 
 When('I press {string}', async (value, WebBuilder) => {
     await WebBuilder.page.keyboard.press(value);
