@@ -1,32 +1,44 @@
 'use strict';
-const { defineParameterType } = require('cucumber');
-const { Given, When, Then, Expression } = require('./custom-steps');
 
-/**
- *  const app = require('./container');	
- *  Expression('$randomString', () => {
- *      return Math.random().toString(36).substring(7);
- *  })
- * 
- *  Given('I set $randomString to input element with {string} selector', async (value, selector) => {
- *      const WebBuilder = app.get('WebBuilder');
- *  })
- * 
-* */
+const { Given, When, Then, Expression, App } = require('./custom-steps');
 
 Expression('$not:{string}', (value) => {
     return `not ${value}`;
 });
 
-Expression('$xPath:{string}', (value) => {
-    return `xpath ${value}`;
+Expression('$xPath:{string}', async (xpath, Page) => {
+
+    const ids = await Page.evaluate(xpath => {
+        function getElementByXpath(path) {
+            return document.evaluate(path, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+        }
+
+        const element = getElementByXpath(xpath);
+        if (!element) {
+            return null;
+        }
+        const id = Math.random().toString(36).substring(7);
+        element.setAttribute('data-autokin', id);
+
+        return id;
+    }, xpath);
+
+
+    return `[data-autokin="${ids}"]`
+
 }, ';');
 
 Expression('$getElAttr:{selector};{attribute}', async (selector, attribute, Page) => {
    const value = await Page.$eval(selector, (el, attribute) => {
         return el[attribute] || el.getAttribute(attribute);
     }, attribute);
+    
+    if (value === null) {
+        throw new Error(`Attribute ${attribute} does not exists on ${selector}`);
+    }
+
     return value;
+    
 }, ';');
 
 const openPage = async (url, WebBuilder) => {

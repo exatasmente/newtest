@@ -141,56 +141,59 @@ const Expression = (pattern, fn, attributeSeparator = ',') => {
     ExpressionsStoreage[pattern] = expression;
 }
 
+let callLimit = 100;
 const ApplyExpression = async (pattern) => {
+    if (callLimit === 0) {
+        throw new Error('Call limit reached');
+    }
+    callLimit--;
     // example of use in step: Then I should see $xPath:$fixture:file.attribute_name
-    if (!pattern.split) {
+    if (!pattern || !pattern.split || pattern.startsWith('$') === false) {
         return pattern;
     }
-    const [expressionName, variablesStr] = pattern.split(':', 2);
+
+    const expressionName = pattern.substring(0, pattern.indexOf(':'));
+    const variablesStr = pattern.substring(pattern.indexOf(':') + 1);
     const expressionKey = Object.keys(ExpressionsStoreage).find(key => {
         return key.split(':')[0] === expressionName;
     });
     
-    const contaisExpression = pattern.lastIndexOf('$') > 0;
-    if (contaisExpression) {
-        const newPattern =  pattern;
-        pattern = newPattern.match(/(\$[a-zA-Z0-9:,.]+)/g).reduce(async (result, match) => {
-            const expression = await ApplyExpression(match);
-            result = result.replace(match, expression);
-            return result;
-        }, pattern);
-
-        return await ApplyExpression(pattern);
-    } else if (expressionKey) {
-    
-        const expression = ExpressionsStoreage[expressionKey];
-    
-        const variables = variablesStr && variablesStr.split ? variablesStr.split(expression.attributeSeparator).map(v => {
-            return v.trim()
-        }) : [];
-
-        const callbackVariables = expression.callback.toString().match(/\((.*?)\)/)[1].split(',').map(arg => arg.trim());
-        callbackVariables.map((variable, index) => {
-            if (app.has(variable)) {
-                variables.push(app.get(variable));
-            }
-        });
-
-
-    
-        const result = expression.callback(...variables);
-        if (result) {
-            return await ApplyExpression(result);
-        }
+    if (!expressionKey) {
+        return pattern;
     }
+
+    const expression = ExpressionsStoreage[expressionKey];
+    const variables = variablesStr.split(expression.attributeSeparator);
+        
     
+    const callbackVariables = expression.callback.toString().match(/\((.*?)\)/)[1].split(',').map(arg => arg.trim());
+    
+    for (let i = 0; i < variables.length; i++) {
+        let variable = variables[i];
+        variable = await ApplyExpression(variable);
+        variables[i] = variable;
+
+    }
+    callbackVariables.map((variable, index) => {
+        if (app.has(variable)) {
+            variables.push(app.get(variable));
+        }
+    });
+
+    
+
+    const result = await expression.callback(...variables);
+    if (result) {
+        return await ApplyExpression(result);
+    }
+
     return pattern;
 }
 
 Expression('$fixture:{string}', (fixture) => {
     // example of fixture value: name_of_fixture_file.attribute_name
     // another example: name_of_fixture_file.attribute_name,another_attribute_name
-    
+    console.log('fixture', fixture);
     const [fixtureName, ...attributes] = fixture.split('.');
     let value = Store.storage[fixtureName];
     if (!value) {
