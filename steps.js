@@ -215,3 +215,84 @@ Then('I should not see {string}', async (selector, WebBuilder) => {
     
 });
 
+Then('I expect to {string} be visible', async (selector, WebBuilder) => {
+
+});
+
+Then('I expect to {string} be hidden', async (selector, WebBuilder) => {
+});
+
+
+Then('I expect {string} to be {string}', async (a, b) => {
+    if (a !== b) {
+        throw new Error(`Expected ${a} to be ${b}`);
+    }
+});
+
+Then('I expect {string} to be eq {string}', async (a, b) => {
+    if (a !== b) {
+        throw new Error(`Expected ${a} to be ${b}`);
+    }
+});
+
+Then('I expect {string} to not be {string}', async (a, b) => {
+    if (a === b) {
+        throw new Error(`Expected ${a} to not be ${b}`);
+    }
+});
+
+Then('I expect {string} to not be eq {string}', async (a, b) => {
+    if (a === b) {
+        throw new Error(`Expected ${a} to not be ${b}`);
+    }
+});
+
+Then('I expect {string} to be greater than {string}', async (a, b) => {
+    if (a <= b) {
+        throw new Error(`Expected ${a} to be greater than ${b}`);
+    }
+})
+
+Then('I expect {string} to be gt {string}', async (a, b) => {
+    if (a <= b) {
+        throw new Error(`Expected ${a} to be greater than ${b}`);
+    }
+})
+
+Then('I expect {string} to be less than {string}', async (a, b) => {
+    console.log(a, b);
+    if (a >= b) {
+        throw new Error(`Expected ${a} to be less than ${b}`);
+    }
+})
+
+Then('I expect {string} to be lt {string}', async (a, b) => {
+    console.log(a, b);
+    if (a >= b) {
+        throw new Error(`Expected ${a} to be less than ${b}`);
+    }
+})
+
+Then('I expect {string} to be greater than or equal to {string}', async (a, b) => {
+    if (a < b) {
+        throw new Error(`Expected ${a} to be greater than or equal to ${b}`);
+    }
+})
+
+Then('I expect {string} to be gte to {string}', async (a, b) => {
+    if (a < b) {
+        throw new Error(`Expected ${a} to be greater than or equal to ${b}`);
+    }
+})
+
+Then('I expect {string} to be less than or equal to {string}', async (a, b) => {
+    if (a > b) {
+        throw new Error(`Expected ${a} to be less than or equal to ${b}`);
+    }
+})
+
+Then('I expect {string} to be lte to {string}', async (a, b) => {
+    if (a > b) {
+        throw new Error(`Expected ${a} to be less than or equal to ${b}`);
+    }
+})
