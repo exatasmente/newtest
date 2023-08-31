@@ -4,6 +4,9 @@ const { Given, When, Then } = require('cucumber');
 const ExpressionsStoreage = {
 };
 
+const FunctionsStorage = {
+};
+
 
 
 const Store = require('./lib/autokin-store');
@@ -141,8 +144,35 @@ const Expression = (pattern, fn, attributeSeparator = ',') => {
     ExpressionsStoreage[pattern] = expression;
 }
 
-const ApplyExpression = async (pattern) => {
-    
+const VarsStorage = {
+};
+
+const generateTempVarName = () => {
+    return '@tempVar:' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
+const removeExtraParenthesis = (expression, maxLoops = 100) => {
+    if (maxLoops === 0) {
+        throw new Error('Max loops reached');
+    }
+    const openParenthesisCount = (expression.match(/\(/g) || []).length;
+    const closeParenthesisCount = (expression.match(/\)/g) || []).length;
+    if (openParenthesisCount === closeParenthesisCount) {
+        return expression;
+    }
+
+    if (openParenthesisCount < closeParenthesisCount) {
+        expression = expression.substring(0, expression.lastIndexOf(')'))
+    }
+
+
+    return removeExtraParenthesis(expression, maxLoops - 1);
+
+}
+const ApplyExpression = async (pattern, maxLoops = 100) => {
+    if (maxLoops === 0) {
+        throw new Error('Max loops reached');
+    }
     //example of pattern: $mask(##/08/####,$regexReplace(digits-only,($getElAttr(#dia-topo;innerText))))
     // must resolve the inner expression first, uing the following steps:
     // get the most inner expression 
@@ -150,24 +180,31 @@ const ApplyExpression = async (pattern) => {
     if (!pattern || !pattern.split || pattern.startsWith('$') === false) {
         return pattern;
     }
-
     if (pattern.lastIndexOf('$') > 0) {
         
         const newPattern = pattern.substring(pattern.indexOf('(') + 1, pattern.lastIndexOf(')'));
         const lastIndexOfDollar = newPattern.lastIndexOf('$');
         const lastIndexOfParenthesis = newPattern.lastIndexOf(')');
         let innerExpression = newPattern.substring(lastIndexOfDollar, lastIndexOfParenthesis + 1);
-        const openParenthesisCount = (innerExpression.match(/\(/g) || []).length;
-        const closeParenthesisCount = (innerExpression.match(/\)/g) || []).length;
-        if (openParenthesisCount !== closeParenthesisCount) {
-            innerExpression = newPattern.substring(lastIndexOfDollar, lastIndexOfParenthesis + 1 + (openParenthesisCount - closeParenthesisCount));
-        }
-        const innerExpressionResult = await ApplyExpression(innerExpression);
         
-        pattern = pattern.replace(innerExpression, innerExpressionResult);
+        innerExpression = removeExtraParenthesis(innerExpression);
 
-        return await ApplyExpression(pattern);
+        if (!innerExpression.endsWith(')')) {
+            innerExpression = innerExpression.substring(0, innerExpression.lastIndexOf(')') + 1);
+        }
+
+        const innerExpressionResult = await ApplyExpression(innerExpression, maxLoops - 1);
+        if (typeof innerExpressionResult !== 'string') {
+            const tempVarName = generateTempVarName();
+            VarsStorage[tempVarName] = innerExpressionResult;
+            pattern = pattern.replace(innerExpression, tempVarName);
+        } else {
+            pattern = pattern.replace(innerExpression, innerExpressionResult);
+        }
+
+        return await ApplyExpression(pattern, maxLoops - 1);
     }
+    
     
     const expressionName = pattern.substring(0, pattern.indexOf('('));
     const variablesStr = pattern.substring(pattern.indexOf('(') + 1, pattern.lastIndexOf(')'));
@@ -181,9 +218,11 @@ const ApplyExpression = async (pattern) => {
         return pattern;
     }
 
+
     const expression = ExpressionsStoreage[expressionKey];
-    const variables =  variablesStr.split(expression.attributeSeparator).map(v => v.trim());
+    let variables =  variablesStr.split(expression.attributeSeparator).map(v => v.trim());
     const callbackVariables = expression.callback.toString().match(/\((.*?)\)/)[1].split(',').map(arg => arg.trim());
+   
     
     callbackVariables.map((variable, index) => {
         if (app.has(variable)) {
@@ -191,11 +230,17 @@ const ApplyExpression = async (pattern) => {
         }
     });
 
-    
+    variables = variables.map((variable) => {
+        if (VarsStorage[variable]) {
+            return VarsStorage[variable];
+        }
+
+        return variable;
+    });
 
     const result = await expression.callback(...variables);
     if (result) {
-        return await ApplyExpression(result);
+        return await ApplyExpression(result, maxLoops - 1);
     }
 
     return pattern;
@@ -229,16 +274,6 @@ Expression('$lower:{string}', (value) => {
     return value.toLowerCase();
 })
 
-Expression('$date:{string}', (value) => {
-    if (value === 'now') {
-        return new Date();
-    }
-
-    value = parseInt(value);
-    
-    return new Date(value);
-})
-
 Expression('$mask:{mask};{value}', (mask, value) => {
 
     const maskChars = mask.split('');
@@ -257,6 +292,10 @@ Expression('$mask:{mask};{value}', (mask, value) => {
     return result;
 
 }, ';')
+
+Expression('$asString:{value}', (value) => {
+    return value.toString();
+})
 
 Expression('$str:{action};{value};{options}', (action, value, options) => {
     if (action === 'replace') {
@@ -338,6 +377,43 @@ Expression('$log:{value}', (value) => {
     console.log(`\n ---------- \n ${value} \n ---------- \n`);
     return value;
 })
+
+Expression('$get:{object};{attribute}', (object, attribute) => {
+    return object[attribute];
+}, ';')
+
+Expression('$call:{object};{attribute}', async (object, fn) => {
+    if (typeof object[fn] === 'function') {
+        return await object[fn]();
+    }
+
+    return object[fn];
+}, ';')
+
+Expression('$concat:{string},{string}', (a, b) => {
+    return a + b;
+}, ';')
+
+
+//
+
+
+Expression('$date:{string}', (value) => {
+    if (value === 'now') {
+        return new Date();
+    }
+
+    value = parseInt(value);
+    
+    return new Date(value);
+})
+
+
+Expression('$obj:{json}', (json) => {
+    return JSON.parse(json);
+})
+
+
 
 Expression('$dateTimestamp:{string}', (value) => {
     return new Date(value).getTime();

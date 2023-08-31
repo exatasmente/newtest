@@ -235,6 +235,13 @@ Then('I expect {string} to be eq {string}', async (a, b) => {
     }
 });
 
+Then('I expect {string} contains {string}', async (a, b) => {
+    if (!a.includes(b)) {
+        throw new Error(`Expected ${a} to contains ${b}`);
+    }
+});
+
+
 Then('I expect {string} to not be {string}', async (a, b) => {
     if (a === b) {
         throw new Error(`Expected ${a} to not be ${b}`);
@@ -260,14 +267,12 @@ Then('I expect {string} to be gt {string}', async (a, b) => {
 })
 
 Then('I expect {string} to be less than {string}', async (a, b) => {
-    console.log(a, b);
     if (a >= b) {
         throw new Error(`Expected ${a} to be less than ${b}`);
     }
 })
 
 Then('I expect {string} to be lt {string}', async (a, b) => {
-    console.log(a, b);
     if (a >= b) {
         throw new Error(`Expected ${a} to be less than ${b}`);
     }
