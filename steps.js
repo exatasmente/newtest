@@ -68,6 +68,23 @@ Given('I on page {string}', async (page, WebBuilder) => {
     await openPage(page, WebBuilder);   
 });
 
+Given('I emulate device {string}', async (device, WebBuilder) => {
+    await WebBuilder.emulate(device);
+});
+
+Given('I set the config {string} to {string}', async (setting, value, WebBuilder) => {
+    WebBuilder.setConfig(setting, value);
+});
+
+Given('I use the config file {string}', async (configFile, WebBuilder) => {
+    const fs = require('fs');
+    const config = JSON.parse(fs.readFileSync(configFile));
+    WebBuilder.setConfigs(config);
+});
+
+Given('I use the config', async (config, WebBuilder) => {
+    WebBuilder.setConfigs(JSON.parse(config));
+});
 Given('I open page {string}', async (page, WebBuilder) => {
     await openPage(page, WebBuilder);
 });
@@ -127,6 +144,10 @@ When('I setTimeout of {int} secs', async (seconds) => {
     await new Promise(resolve => setTimeout(resolve, seconds * 1000));
 })
 
+When('I setTimeout of {int} ms', async (ms) => {
+    await new Promise(resolve => setTimeout(resolve, ms));
+})
+
 When('I press {string}', async (value, WebBuilder) => {
     await WebBuilder.page.keyboard.press(value);
 })
@@ -147,6 +168,9 @@ When('I wait for networkidle0', async (WebBuilder) => {
     });
 });
 
+Then('I save the video {string}', async (path, WebBuilder) => {
+    await WebBuilder.saveVideo(path);
+});
 Then('I store the session {string}', async (sessionName, WebBuilder) => {
     const json = await WebBuilder.storeSession(sessionName)
 

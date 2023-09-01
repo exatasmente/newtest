@@ -13,17 +13,13 @@ const Store = require('./lib/autokin-store');
 const {WebBuilder} = require('./lib/web/autokin-web');
 
 class DependencyInjectionContainer {
-    constructor(defaults = []) {
+    constructor(callback = null) {
         this.container = {};
-        defaults.map((item) => {
-            if (item.singleton === true) {
-                this.singleton(item.name, item.instance);
-            } else {
-                this.set(item.name,  item.instance);
-            }
-        });
-
         this.set('AppContainer', this);
+    
+        if (callback) {
+            callback(this);
+        }
     }
 
     set(name, instance) {
@@ -52,23 +48,16 @@ class DependencyInjectionContainer {
         return value;
     }
 
+    setConfig(name, value) {
+        this.container[name] = value;
+    }
 }
 
-const app = new DependencyInjectionContainer([
-    {
-        name: 'WebBuilder',
-        instance: () => WebBuilder,
-        singleton: true,
-    },
-    {
-        name: 'Store',
-        instance: () => Store,
-        singleton: true,
-    },
-
-])
-app.set('Page', () => {
-    return app.get('WebBuilder').page;
+const app = new DependencyInjectionContainer((appContainer) => {
+    
+    appContainer.set('WebBuilder',() => WebBuilder);
+    appContainer.set('Store', () => Store);
+    appContainer.set('Page', () => appContainer.get('WebBuilder').page);
 })
 
 const dependencyInjectionCallback = (fn) => {
