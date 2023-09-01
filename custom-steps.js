@@ -171,7 +171,7 @@ const removeExtraParenthesis = (expression, maxLoops = 100) => {
 }
 const ApplyExpression = async (pattern, maxLoops = 100) => {
     if (maxLoops === 0) {
-        throw new Error('Max loops reached');
+        throw new Error('Max loops reached ' + pattern);
     }
     //example of pattern: $mask(##/08/####,$regexReplace(digits-only,($getElAttr(#dia-topo;innerText))))
     // must resolve the inner expression first, uing the following steps:
@@ -194,6 +194,7 @@ const ApplyExpression = async (pattern, maxLoops = 100) => {
         }
 
         const innerExpressionResult = await ApplyExpression(innerExpression, maxLoops - 1);
+    
         if (typeof innerExpressionResult !== 'string') {
             const tempVarName = generateTempVarName();
             VarsStorage[tempVarName] = innerExpressionResult;
@@ -239,11 +240,8 @@ const ApplyExpression = async (pattern, maxLoops = 100) => {
     });
 
     const result = await expression.callback(...variables);
-    if (result) {
-        return await ApplyExpression(result, maxLoops - 1);
-    }
-
-    return pattern;
+    return await ApplyExpression(result, maxLoops - 1);
+    
 }
 
 Expression('$fixture:{string}', (fixture) => {
@@ -378,10 +376,6 @@ Expression('$log:{value}', (value) => {
     return value;
 })
 
-Expression('$get:{object};{attribute}', (object, attribute) => {
-    return object[attribute];
-}, ';')
-
 Expression('$call:{object};{attribute}', async (object, fn) => {
     if (typeof object[fn] === 'function') {
         return await object[fn]();
@@ -395,7 +389,14 @@ Expression('$concat:{string},{string}', (a, b) => {
 }, ';')
 
 
-//
+Expression('$get:{attribute}', (attribute) => {
+    return Store.get(attribute);
+})
+
+Expression('$set:{attribute};{value}', (attribute, value) => {
+    Store.set(attribute, value);
+    return value;
+}, ';')
 
 
 Expression('$date:{string}', (value) => {

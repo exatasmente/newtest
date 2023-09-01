@@ -36,12 +36,22 @@ Expression('$xPath:{string}', async (xpath, Page) => {
 }, ';');
 
 Expression('$getElAttr:{selector};{attribute}', async (selector, attribute, Page) => {
-   const value = await Page.$eval(selector, (el, attribute) => {
-        return el[attribute] || el.getAttribute(attribute);
+    console.log('getElAttr', selector, attribute);
+   let value = await Page.$eval(selector, async (el, attribute) => {
+        return attribute.split('.').reduce((el,attr) => { 
+            if (el[attr] !== undefined) {
+                el = el[attr];
+            } else if (el.getAttribute) {
+                el = el.getAttribute(attr);
+            } 
+
+            return el
+        }, el);
+        
     }, attribute);
     
-    if (value === null) {
-        throw new Error(`Attribute ${attribute} does not exists on ${selector}`);
+    if (value === null || typeof value === 'Object') {
+        throw new Error(`Attribute ${attribute} does not exists on ${selector}`, value);
     }
 
     return value;
@@ -101,10 +111,16 @@ Given('I use the session {string}', async (sessionName, WebBuilder, Store) => {
 
 
 When('I click {string}', async (selector, WebBuilder) => {
-    const xpath = selector.startsWith('xpath');
-    selector = xpath ? selector.split('xpath ')[1] : selector;
-    await WebBuilder.click(selector, xpath);
-    
+    await WebBuilder.click(selector);
+});
+
+When('I mouse click {int} {int}', async (x, y, WebBuilder) => {
+    await WebBuilder.mouseClick(x, y);
+});
+
+
+When('I click document {string}', async (selector, WebBuilder) => {
+    await WebBuilder.clickThruDocument(selector);
 });
 
 When('I setTimeout of {int} secs', async (seconds) => {
@@ -144,6 +160,14 @@ Then('I store the html {string}', async (path, WebBuilder) => {
 
     fs.writeFileSync(path + '.html', html);
 });
+
+Then('I expect {string} be empty', async (string) => {
+    if (string) {
+        throw new Error(`Expected ${string} to be empty`);
+    }
+});
+
+
 Then('I wait for element {string}', async (selector, WebBuilder) => {
     const xpath = selector.startsWith('xpath');
     selector = xpath ? selector.split('xpath ')[1] : selector;
