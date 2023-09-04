@@ -14,7 +14,8 @@ Background:
 			"height" : 720
 		},
 		"emulate" : "Pixel 2",
-		"recordVideo" : true
+		"recordVideo" : false,
+		"scrollToInteract" : false
 	}
 	```
 	And I define the variables
@@ -72,7 +73,9 @@ Scenario: Canvas
 	When I click document "$get(CarrinhoBtn)"
 	And I wait until "$wait($str($get(CarrinhoContainerDisplayStyle);empty);2000)"
 	And I expect "$get(PriceValues)" contains "R$ 26,48"
-
+	And I setTimeout of 5 secs
+	When I click document "$get(FecharCarrinhoBtn)"
+	Then I expect "$get(AbrirCarrinhoBtnDisplayStyle)" be empty
 	And I save the video "test"
 	
 	

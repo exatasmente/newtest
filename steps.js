@@ -35,9 +35,13 @@ Expression('$xPath:{string}', async (xpath, Page) => {
 
 }, ';');
 
-Expression('$getElAttr:{selector};{attribute}', async (selector, attribute, Page) => {
+Expression('$getElAttr:{selector};{attribute}', async (selector, attribute, WebBuilder) => {
 
-   let value = await Page.$eval(selector, async (el, attribute) => {
+   if (WebBuilder.scrollToInteract) {
+         await WebBuilder.scrollTo(selector);
+   }
+   
+   let value = await WebBuilder.page.$eval(selector, async (el, attribute) => {
         return attribute.split('.').reduce((el,attr) => { 
             if (el[attr] !== undefined) {
                 el = el[attr];
@@ -50,10 +54,6 @@ Expression('$getElAttr:{selector};{attribute}', async (selector, attribute, Page
         
     }, attribute);
     
-    if (value === null || typeof value === 'Object') {
-        throw new Error(`Attribute ${attribute} does not exists on ${selector}`, value);
-    }
-
     return value;
     
 }, ';');
@@ -187,7 +187,7 @@ When('I wait for response', async (json, WebBuilder) => {
         throw new Error(`Response ${json} not found`);
     }
 
-    
+
 });
 
 
