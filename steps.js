@@ -180,6 +180,17 @@ When('I wait for networkidle0', async (WebBuilder) => {
     });
 });
 
+When('I wait for response', async (json, WebBuilder) => {
+    const response = await WebBuilder.waitForResponse(json);
+
+    if (!response) {
+        throw new Error(`Response ${json} not found`);
+    }
+
+    
+});
+
+
 Then('I save the video {string}', async (path, WebBuilder) => {
     await WebBuilder.saveVideo(path);
 });

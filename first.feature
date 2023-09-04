@@ -39,24 +39,38 @@ Background:
 Scenario: Canvas 
 	
 	Given I on page "https://taikensushihouse.com.br/"
-	And I setTimeout of 1 secs
-	When I click document "$get(AddCarrinhoProduto1Btn)"
-	And I setTimeout of 1000 ms
+	When I wait for response
+	```
+	{
+		"url" : "https://taikensushihouse.com.br/livewire/message/store.product-list",
+		"method" : "POST",
+		"status" : 200,
+		"timeout" : 2000
+	}
+	```
+	When I wait until "$wait($getElAttr($get(AddCarrinhoProduto1Btn);innerText); 2000)"
+	And I click document "$get(AddCarrinhoProduto1Btn)"
+	When I wait for response
+	```
+	{
+		"url" : "https://taikensushihouse.com.br/livewire/message/store.cart",
+		"method" : "POST",
+		"status" : 200,
+		"timeout" : 2000
+	}
+	```
 	And I wait until "$wait($str($get(NotificationElText);includes;Produto adicionado à Sacola!);3000)"
-	Then I expect "$get(NotificationElText)" contains "Produto adicionado à Sacola!"
-	And I expect "$get(NotificationElOpacity)" contains "opacity-100"
+	Then I expect "$get(NotificationElOpacity)" contains "opacity-100"
 	And I expect "$get(NOfItensInCartText)" contains "1"
-	And I wait until "$wait($str($get(NotificationElOpacity);contains;opacity-0);3000)"
-	When I click document "$get(AddCarrinhoProduto2Btn)"
-	And I setTimeout of 1000 ms
-	Then I expect "$get(NotificationElText)" contains "Produto adicionado à Sacola!"
+	When I wait until "$wait($str($get(NotificationElOpacity);contains;opacity-0);4000)"
+	And I click document "$get(AddCarrinhoProduto2Btn)"
+	And I wait until "$wait($str($get(NotificationElText);includes;Produto adicionado à Sacola!);3000)"
 	Then I expect "$get(NotificationElOpacity)" contains "opacity-100"
 	And I expect "$get(NOfItensInCartText)" contains "2"
-	And I wait until "$wait($str($get(NotificationElOpacity);contains;opacity-0);10000)"
+	When I wait until "$wait($str($get(NotificationElOpacity);contains;opacity-0);10000)"
 	Then I expect "$get(NotificationElOpacity)" contains "opacity-0"
 	When I click document "$get(CarrinhoBtn)"
-	And I setTimeout of 300 ms
-	Then I expect "$get(CarrinhoContainerDisplayStyle)" be empty
+	And I wait until "$wait($str($get(CarrinhoContainerDisplayStyle);empty);2000)"
 	And I expect "$get(PriceValues)" contains "R$ 26,48"
 
 	And I save the video "test"

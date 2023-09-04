@@ -322,6 +322,11 @@ Expression('$asString:{value}', (value) => {
 })
 
 Expression('$str:{value};{action};{options}', (value, action, options) => {
+
+    if (action === 'empty') {
+        return value === '';
+    }
+
     if (action === 'replace') {
         const [search, replace] = options.split(',');
         return value.replace(search, replace);
@@ -363,12 +368,7 @@ Expression('$str:{value};{action};{options}', (value, action, options) => {
         return value.endsWith(options);
     }
 
-    if (action === 'includes') {
-        return value.includes(options);
-    }
-
-    if (action == 'contains') {
-        console.log('contains', value, options);
+    if (action === 'includes' || action === 'contains') {
         return value.includes(options);
     }
 
@@ -436,7 +436,6 @@ Expression('$wait:{expression};{timeout}', async (expression, timeout) => {
     return new Promise(async(resolve, reject) => {
         const interval = setInterval( async () => {
             const value = await ApplyExpression(expression)
-            console.log('value', value, expression);
             if (value) {
                 clearInterval(interval);
                 resolve(value);
