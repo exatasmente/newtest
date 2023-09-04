@@ -1,6 +1,8 @@
-Feature: My Feature
-	As Autokin tester
-	I want to verify that all API are working as they should
+Feature: Add products to cart
+	As a user
+	I want to add products to cart
+	So I can buy them
+	
 
 Background:
 	Given I use the config
@@ -11,8 +13,7 @@ Background:
 			"width" : 1280,
 			"height" : 720
 		},
-		"slowMo" : 100,
-		"emulate" : "iPhone X",
+		"emulate" : "Pixel 2",
 		"recordVideo" : true
 	}
 	```
@@ -21,9 +22,14 @@ Background:
 	{
 		"FecharCarrinhoBtn" : "$xPath(//*[@id='cart-content']/div/div[2]/div/div/div[2]/a)",
 		"CarrinhoBtn" : "#cart-content > button",
+		"PriceValues" : "$getElAttr(#price-values;innerText)", 
 		"CarrinhoContainerDisplayStyle" : "$getElAttr(#cart-content > div;style.display)",
-		"AbrirCarrinhoBtnDisplayStyle" : "$getElAttr($get(CarrinhoBtn);style.display)"
-
+		"AbrirCarrinhoBtnDisplayStyle" : "$getElAttr($get(CarrinhoBtn);style.display)",
+		"AddCarrinhoProduto1Btn" : "#hossomaki-camarao > div > button",
+		"AddCarrinhoProduto2Btn" : "#hossomaki-salmao > div > button",
+		"NOfItensInCartText" : "$getElAttr(#cart-content > button > div > span;innerText)",
+		"NotificationElText" : "$getElAttr([x-data='window.notificationTracker()'];innerText)",
+		"NotificationElOpacity" : "$getElAttr([x-data='window.notificationTracker()'];className)"
 	}
 	```
 
@@ -34,16 +40,25 @@ Scenario: Canvas
 	
 	Given I on page "https://taikensushihouse.com.br/"
 	And I setTimeout of 1 secs
-	Then I expect "$get(CarrinhoContainerDisplayStyle)" contains "none"
-	And I expect "$get(AbrirCarrinhoBtnDisplayStyle)" be empty
+	When I click document "$get(AddCarrinhoProduto1Btn)"
+	And I setTimeout of 1000 ms
+	Then I expect "$get(NotificationElText)" contains "Produto adicionado à Sacola!"
+	And I expect "$get(NotificationElOpacity)" contains "opacity-100"
+	And I expect "$get(NOfItensInCartText)" contains "1"
+	And I setTimeout of 5000 ms
+	Then I expect "$get(NotificationElOpacity)" contains "opacity-0"
+	When I click document "$get(AddCarrinhoProduto2Btn)"
+	And I setTimeout of 1000 ms
+	Then I expect "$get(NotificationElText)" contains "Produto adicionado à Sacola!"
+	Then I expect "$get(NotificationElOpacity)" contains "opacity-100"
+	And I expect "$get(NOfItensInCartText)" contains "2"
+	And I setTimeout of 5000 ms
+	Then I expect "$get(NotificationElOpacity)" contains "opacity-0"
 	When I click document "$get(CarrinhoBtn)"
 	And I setTimeout of 300 ms
-	Then I expect "$get(AbrirCarrinhoBtnDisplayStyle)" contains "none"
-	And I expect "$get(CarrinhoContainerDisplayStyle)" be empty
-	When I click document "$get(FecharCarrinhoBtn)"
-	And I setTimeout of 300 ms
-	Then I expect "$get(AbrirCarrinhoBtnDisplayStyle)" be empty
-	And I expect "$get(CarrinhoContainerDisplayStyle)" contains "none"
+	Then I expect "$get(CarrinhoContainerDisplayStyle)" be empty
+	And I expect "$get(PriceValues)" contains "R$ 26,48"
+
 	And I save the video "test"
 	
 	
