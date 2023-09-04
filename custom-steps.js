@@ -160,7 +160,7 @@ const removeExtraParenthesis = (expression, maxLoops = 100) => {
 
 }
 
-const extractVariables = (pattern, expression) => {
+const extractVariables = async (pattern, expression) => {
     // example of pattern: $mask(##/08/####,$regexReplace(digits-only,($getElAttr(#dia-topo;innerText))))'
     // variables have parenthesis, so we need to extract them following the parenthesis rules
     // the result of this function should be: ['##/08/####', '$regexReplace(digits-only,($getElAttr(#dia-topo;innerText)))']
@@ -193,6 +193,11 @@ const extractVariables = (pattern, expression) => {
         variables.push(variable);
     }
 
+    for(let i = 0; i < variables.length; i++) {
+        if (!expression.handleExpressionArg && variables[i].startsWith('$')) {
+            variables[i] = await ApplyExpression(variables[i]);
+        }
+    }
     return variables;
     
 }
@@ -200,9 +205,6 @@ const ApplyExpression = async (pattern, maxLoops = 100) => {
     if (maxLoops === 0) {
         throw new Error('Max loops reached ' + pattern);
     }
-    //example of pattern: $mask(##/08/####,$regexReplace(digits-only,($getElAttr(#dia-topo;innerText))))
-    // must resolve the inner expression first, uing the following steps:
-    // get the most inner expression 
     
     if (!pattern || !pattern.split || pattern.startsWith('$') === false) {
         return pattern;
@@ -222,33 +224,7 @@ const ApplyExpression = async (pattern, maxLoops = 100) => {
 
 
     const expression = ExpressionsStoreage[expressionKey];
-
-    if (!expression.handleExpressionArg && pattern.lastIndexOf('$') > 0) {
-        const newPattern = pattern.substring(pattern.indexOf('(') + 1, pattern.lastIndexOf(')'));
-        const lastIndexOfDollar = newPattern.lastIndexOf('$');
-        const lastIndexOfParenthesis = newPattern.lastIndexOf(')');
-        let innerExpression = newPattern.substring(lastIndexOfDollar, lastIndexOfParenthesis + 1);
-        
-        innerExpression = removeExtraParenthesis(innerExpression);
-
-        if (!innerExpression.endsWith(')')) {
-            innerExpression = innerExpression.substring(0, innerExpression.lastIndexOf(')') + 1);
-        }
-
-        const innerExpressionResult = await ApplyExpression(innerExpression, maxLoops - 1);
-    
-            if (typeof innerExpressionResult !== 'string') {
-            const tempVarName = generateTempVarName();
-            VarsStorage[tempVarName] = innerExpressionResult;
-            pattern = pattern.replace(innerExpression, tempVarName);
-        } else {
-            pattern = pattern.replace(innerExpression, innerExpressionResult);
-        }
-
-        return await ApplyExpression(pattern, maxLoops - 1);
-    }
-    
-    let  variables = extractVariables(variablesStr, expression);
+    let variables = await extractVariables(variablesStr, expression);    
     const callbackVariables = expression.callback.toString().match(/\((.*?)\)/)[1].split(',').map(arg => arg.trim());
 
     callbackVariables.map((variable, index) => {
