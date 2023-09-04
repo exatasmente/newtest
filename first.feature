@@ -2,7 +2,7 @@ Feature: Add products to cart
 	As a user
 	I want to add products to cart
 	So I can buy them
-	
+
 
 Background:
 	Given I use the config
@@ -42,17 +42,17 @@ Scenario: Canvas
 	And I setTimeout of 1 secs
 	When I click document "$get(AddCarrinhoProduto1Btn)"
 	And I setTimeout of 1000 ms
+	And I wait until "$wait($str($get(NotificationElText);includes;Produto adicionado à Sacola!);3000)"
 	Then I expect "$get(NotificationElText)" contains "Produto adicionado à Sacola!"
 	And I expect "$get(NotificationElOpacity)" contains "opacity-100"
 	And I expect "$get(NOfItensInCartText)" contains "1"
-	And I setTimeout of 5000 ms
-	Then I expect "$get(NotificationElOpacity)" contains "opacity-0"
+	And I wait until "$wait($str($get(NotificationElOpacity);contains;opacity-0);3000)"
 	When I click document "$get(AddCarrinhoProduto2Btn)"
 	And I setTimeout of 1000 ms
 	Then I expect "$get(NotificationElText)" contains "Produto adicionado à Sacola!"
 	Then I expect "$get(NotificationElOpacity)" contains "opacity-100"
 	And I expect "$get(NOfItensInCartText)" contains "2"
-	And I setTimeout of 5000 ms
+	And I wait until "$wait($str($get(NotificationElOpacity);contains;opacity-0);10000)"
 	Then I expect "$get(NotificationElOpacity)" contains "opacity-0"
 	When I click document "$get(CarrinhoBtn)"
 	And I setTimeout of 300 ms

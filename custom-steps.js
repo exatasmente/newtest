@@ -101,7 +101,7 @@ const NewWhen = (pattern, fn) => {
     When(pattern, callback);
 };
 
-const Expression = (pattern, fn, attributeSeparator = ',') => {
+const Expression = (pattern, fn, attributeSeparator = ',', handleExpressionArg = false) => {
     // example of pattern: $xPath:{string}
     // another example: $fixture:{string}
 
@@ -113,6 +113,7 @@ const Expression = (pattern, fn, attributeSeparator = ',') => {
         variables: [],
         callback: fn,
         attributeSeparator: attributeSeparator,
+        handleExpressionArg: handleExpressionArg,
     }
 
 
@@ -158,6 +159,43 @@ const removeExtraParenthesis = (expression, maxLoops = 100) => {
     return removeExtraParenthesis(expression, maxLoops - 1);
 
 }
+
+const extractVariables = (pattern, expression) => {
+    // example of pattern: $mask(##/08/####,$regexReplace(digits-only,($getElAttr(#dia-topo;innerText))))'
+    // variables have parenthesis, so we need to extract them following the parenthesis rules
+    // the result of this function should be: ['##/08/####', '$regexReplace(digits-only,($getElAttr(#dia-topo;innerText)))']
+
+    const variables = [];
+    let variable = '';
+    let parenthesisCount = 0;
+    let lastChar = '';
+    for (let i = 0; i < pattern.length; i++) {
+        const char = pattern[i];
+        if (char === '(') {
+            parenthesisCount++;
+        }
+
+        if (char === ')') {
+            parenthesisCount--;
+        }
+
+        if (char === expression.attributeSeparator && parenthesisCount === 0) {
+            variables.push(variable);
+            variable = '';
+            continue;
+        }
+
+        variable += char;
+        lastChar = char;
+    }
+
+    if (variable !== '') {
+        variables.push(variable);
+    }
+
+    return variables;
+    
+}
 const ApplyExpression = async (pattern, maxLoops = 100) => {
     if (maxLoops === 0) {
         throw new Error('Max loops reached ' + pattern);
@@ -169,32 +207,6 @@ const ApplyExpression = async (pattern, maxLoops = 100) => {
     if (!pattern || !pattern.split || pattern.startsWith('$') === false) {
         return pattern;
     }
-    if (pattern.lastIndexOf('$') > 0) {
-        
-        const newPattern = pattern.substring(pattern.indexOf('(') + 1, pattern.lastIndexOf(')'));
-        const lastIndexOfDollar = newPattern.lastIndexOf('$');
-        const lastIndexOfParenthesis = newPattern.lastIndexOf(')');
-        let innerExpression = newPattern.substring(lastIndexOfDollar, lastIndexOfParenthesis + 1);
-        
-        innerExpression = removeExtraParenthesis(innerExpression);
-
-        if (!innerExpression.endsWith(')')) {
-            innerExpression = innerExpression.substring(0, innerExpression.lastIndexOf(')') + 1);
-        }
-
-        const innerExpressionResult = await ApplyExpression(innerExpression, maxLoops - 1);
-    
-        if (typeof innerExpressionResult !== 'string') {
-            const tempVarName = generateTempVarName();
-            VarsStorage[tempVarName] = innerExpressionResult;
-            pattern = pattern.replace(innerExpression, tempVarName);
-        } else {
-            pattern = pattern.replace(innerExpression, innerExpressionResult);
-        }
-
-        return await ApplyExpression(pattern, maxLoops - 1);
-    }
-    
     
     const expressionName = pattern.substring(0, pattern.indexOf('('));
     const variablesStr = pattern.substring(pattern.indexOf('(') + 1, pattern.lastIndexOf(')'));
@@ -210,10 +222,35 @@ const ApplyExpression = async (pattern, maxLoops = 100) => {
 
 
     const expression = ExpressionsStoreage[expressionKey];
-    let variables =  variablesStr.split(expression.attributeSeparator).map(v => v.trim());
-    const callbackVariables = expression.callback.toString().match(/\((.*?)\)/)[1].split(',').map(arg => arg.trim());
-   
+
+    if (!expression.handleExpressionArg && pattern.lastIndexOf('$') > 0) {
+        const newPattern = pattern.substring(pattern.indexOf('(') + 1, pattern.lastIndexOf(')'));
+        const lastIndexOfDollar = newPattern.lastIndexOf('$');
+        const lastIndexOfParenthesis = newPattern.lastIndexOf(')');
+        let innerExpression = newPattern.substring(lastIndexOfDollar, lastIndexOfParenthesis + 1);
+        
+        innerExpression = removeExtraParenthesis(innerExpression);
+
+        if (!innerExpression.endsWith(')')) {
+            innerExpression = innerExpression.substring(0, innerExpression.lastIndexOf(')') + 1);
+        }
+
+        const innerExpressionResult = await ApplyExpression(innerExpression, maxLoops - 1);
     
+            if (typeof innerExpressionResult !== 'string') {
+            const tempVarName = generateTempVarName();
+            VarsStorage[tempVarName] = innerExpressionResult;
+            pattern = pattern.replace(innerExpression, tempVarName);
+        } else {
+            pattern = pattern.replace(innerExpression, innerExpressionResult);
+        }
+
+        return await ApplyExpression(pattern, maxLoops - 1);
+    }
+    
+    let  variables = extractVariables(variablesStr, expression);
+    const callbackVariables = expression.callback.toString().match(/\((.*?)\)/)[1].split(',').map(arg => arg.trim());
+
     callbackVariables.map((variable, index) => {
         if (app.has(variable)) {
             variables.push(app.get(variable));
@@ -284,7 +321,7 @@ Expression('$asString:{value}', (value) => {
     return value.toString();
 })
 
-Expression('$str:{action};{value};{options}', (action, value, options) => {
+Expression('$str:{value};{action};{options}', (value, action, options) => {
     if (action === 'replace') {
         const [search, replace] = options.split(',');
         return value.replace(search, replace);
@@ -330,11 +367,16 @@ Expression('$str:{action};{value};{options}', (action, value, options) => {
         return value.includes(options);
     }
 
+    if (action == 'contains') {
+        console.log('contains', value, options);
+        return value.includes(options);
+    }
+
     if (action === 'manipulate') {
         const [manipulation, ...args] = options.split(',');
         return value[manipulation](...args);
     }
-})
+}, ';')
 
 Expression('$regexReplace:{regex};{value}', (regex, value) => {
     if (!value) {
@@ -386,6 +428,27 @@ Expression('$set:{attribute};{value}', (attribute, value) => {
     Store.set(attribute, value);
     return value;
 }, ';')
+
+
+Expression('$wait:{expression};{timeout}', async (expression, timeout) => {
+  
+
+    return new Promise(async(resolve, reject) => {
+        const interval = setInterval( async () => {
+            const value = await ApplyExpression(expression)
+            console.log('value', value, expression);
+            if (value) {
+                clearInterval(interval);
+                resolve(value);
+            }
+        }, 1000);
+
+        setTimeout(() => {
+            clearInterval(interval);
+            reject(new Error(`Timeout reached for expression ${expression}`));
+        }, timeout);
+    });
+}, ';', true)
 
 
 Expression('$date:{string}', (value) => {

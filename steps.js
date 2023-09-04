@@ -36,7 +36,7 @@ Expression('$xPath:{string}', async (xpath, Page) => {
 }, ';');
 
 Expression('$getElAttr:{selector};{attribute}', async (selector, attribute, Page) => {
-    console.log('getElAttr', selector, attribute);
+
    let value = await Page.$eval(selector, async (el, attribute) => {
         return attribute.split('.').reduce((el,attr) => { 
             if (el[attr] !== undefined) {
@@ -133,6 +133,10 @@ Given('I use the session {string}', async (sessionName, WebBuilder, Store) => {
 
     await WebBuilder.restoreSession(sessionName);
 });
+
+When('I wait until {string}', async (expression) => {
+    await expression;
+})
 
 
 When('I click {string}', async (selector, WebBuilder) => {
