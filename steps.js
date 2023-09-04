@@ -101,6 +101,14 @@ Given('I navigate {string}', async (page, WebBuilder) => {
     await WebBuilder.page.goto(page);
 });
 
+Given('I define the variables', async (variables, Store) => {
+    const vars = JSON.parse(variables);
+    Object.keys(vars).forEach(key => {
+        Store.set(key, vars[key]);
+    });
+    
+})
+
 
 Given('I mock response {string}', async (selector, WebBuilder) => {
     const [method, url, value] = selector.split(',');
