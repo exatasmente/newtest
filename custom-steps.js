@@ -298,14 +298,36 @@ Expression('$asString:{value}', (value) => {
 })
 
 Expression('$str:{value};{action};{options}', (value, action, options) => {
-
+    
     if (action === 'empty') {
         return value === '';
     }
 
     if (action === 'replace') {
-        const [search, replace] = options.split(',');
-        return value.replace(search, replace);
+        let [search, replace] = options.split(',');
+        if (replace === 'empty') {
+            replace = '';
+        }
+        if (search === 'empty') {
+            search = '';
+        }
+
+        if (search === 'space') {
+            search = ' ';
+        }
+
+        if (replace === 'space') {
+            replace = ' ';
+        }
+
+        if (search === 'newline') {
+            search = '\n';
+        }
+
+        if (replace === 'newline') {
+            replace = '\n';
+        }
+        return value.replaceAll(search, replace);
     }
 
     if (action === 'split') {
@@ -452,5 +474,6 @@ module.exports = {
     When : NewWhen,
     Then : NewThen,
     Expression : Expression,
+    ApplyExpression : ApplyExpression,
     App : app,
 }
