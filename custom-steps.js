@@ -7,6 +7,30 @@ const ExpressionsStoreage = {
 const FunctionsStorage = {
 };
 
+const ResolvedExpressions = {
+};
+
+const getResolvedExpressionValue = (expression) => {
+    if (ResolvedExpressions[expression]) {
+        return ResolvedExpressions[expression];
+    }
+    
+    return expression;
+}
+
+const setResolvedExpressionValue = (expression, value) => {
+    if (expression.startsWith('$') === false ) {
+        return;
+    }   
+
+    if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
+        return 
+    }
+
+    ResolvedExpressions[expression] = value;
+}
+
+
 
 
 const Store = require('./lib/autokin-store');
@@ -68,13 +92,13 @@ const dependencyInjectionCallback = (fn) => {
     let callback = fn;
 
     if (fnArgs.length > 0) {
-        let applyArgsStr = `const args = [];`
+        let applyArgsStr = `const args = []; let expValue = '';`
         let newArgs = [];
         fnArgs.map((arg, index) => {
             if (app.has(arg)) {
                 applyArgsStr += `args.push(app.get('${arg}'));`
             } else {
-                applyArgsStr += `args.push(await ApplyExpression(${arg}));`
+                applyArgsStr += `expValue = await ApplyExpression(${arg}); setResolvedExpressionValue(${arg}, expValue); args.push(expValue);`
                 newArgs.push(`${arg}`);
             }
         });
@@ -86,7 +110,23 @@ const dependencyInjectionCallback = (fn) => {
 
 }
 
+const extractCumcumberArgs = (pattern) => {
+    // example of pattern: I wait until {string}
+    // the result of this function should be: ['string']
+    const args =  pattern.match(/{(.*?)}/g);
+
+    if (!args) {
+        return [];
+    }
+
+    return args.map(arg => {
+        return arg.substring(1, arg.length - 1);
+    });
+    
+}
+
 const NewGiven = (pattern, fn) =>{
+    FunctionsStorage[pattern] = extractCumcumberArgs(pattern);
     const callback = dependencyInjectionCallback(fn);
     Given(pattern, callback);
 };
@@ -475,5 +515,38 @@ module.exports = {
     Then : NewThen,
     Expression : Expression,
     ApplyExpression : ApplyExpression,
+    ResolveExpressions : (step) => {
+        // example of step: I wait until $xPath(//div[@id='id'])
+        // first we need to extract the arguments from the step
+        // the result of this function should be: ['$xPath(//div[@id='id'])']
+        // to do that we need find the index of '$<expression>(' and find the closing parenthesis
+
+        const expressions = Object.keys(ExpressionsStoreage);
+        const args = [];
+        let resolvedStep = step;
+        for (let i = 0; i < expressions.length; i++) {
+            const pattern = expressions[i].split(':')[0];
+            const index = step.indexOf(pattern + '(');
+            if (index === -1) {
+                continue;
+            }
+
+            let expressionStr = step.substring(index, step.lastIndexOf(')') + 1);
+            expressionStr = removeExtraParenthesis(expressionStr);
+
+            const result = {
+                expression: expressionStr,
+                value : getResolvedExpressionValue(expressionStr),
+            };
+
+            args.push(result);
+
+            resolvedStep = resolvedStep.replace(expressionStr, expressionStr + ' -> ' + result.value);
+        }
+
+        return {step : resolvedStep, args};
+        
+    },
+
     App : app,
 }

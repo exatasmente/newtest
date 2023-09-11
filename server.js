@@ -3,10 +3,45 @@
 // execute: this event is triggered when the client sends a request to execute a workflow
 // the server will then execute the workflow and send back the results
 
+
+const options = {
+  stdio: [ 'pipe', 'pipe', 'pipe', 'ipc' ]
+};
+
+
+
 const {Server} = require('socket.io');
 const process = require('process');
 
-const execute  = (name,spec) => {
+const currentExecutions = {
+
+}
+
+const addExecution = (name) => {
+    currentExecutions[name] =  [];
+}
+
+const removeExecution = (name) => {
+    delete currentExecutions[name];
+}
+
+const updateExecution = (name, options) => {
+    const currentExecution = currentExecutions[name];
+    if (!currentExecution) {
+        return;
+    }
+
+    currentExecutions[name].push(options);
+
+    if (options.status === 'failed' || options.status === 'passed' || options.status === 'skipped' || options.status === 'ended') {
+        removeExecution(name);
+        return
+    }
+}
+
+
+
+const execute  = (name,spec, socket) => {
     const fs = require('fs');
     const specfile = './' + name + '.feature';
     let fileContent = fs.readFileSync(`./feature.feature`, 'utf8');
@@ -17,32 +52,57 @@ const execute  = (name,spec) => {
     fs.writeFileSync(specfile, fileContent);
 
     const { spawn } = require('child_process');
-    const child = spawn('node', ['./bin/autokin', '-e', '--customSteps', 'steps.js', '--specs', specfile]);
+    const child = spawn('node', ['./bin/autokin', '-e', '--customSteps', 'steps.js', '--specs', specfile], options);
+    const logs = [];
+    const promise = new Promise((resolve, reject) => {
+        child.on('message', (message) => {
+            const {type, data} = message;
 
-    child.stdout.on('data', (data) => {
-        
-    })
+            if (type == 'test-case-started') {
+                addExecution(name);
+            }
 
-    child.stderr.on('data', (data) => {
-        console.log(`stderr: ${data}`);
-    })
+            if (type === 'test-step-started') {
+                data.status = 'running';
+                logs.push(data);
+            }
 
-    child.on('close', (code) => {
-        console.log(`child process exited with code ${code}`);
-    })
+            if (type === 'test-step-finished') {
+                console.log('step finished', JSON.stringify(data));
+                logs.push(data);
+            }
 
-    child.on('error', (err) => {
-        console.log(`child process error ${err}`);
-    })
+            if (type === 'test-run-finished') {
+                const {success, message} = data;
+                updateExecution(name, {
+                    status: success ? 'ended' : 'failed',
+                    message,
+                });
+            }
 
-    child.on('exit', (code) => {
-        console.log(`child process exited with code ${code}`);
-    })
+            socket.emit('update', data);
 
-    child.on('message', (message) => {
-        console.log(`child process message ${message}`);
-    })
+        })
 
+        child.on('exit', (code, signal) => {
+            console.log('child process exited with ' +
+                        `code ${code} and signal ${signal}`);
+            resolve(code);
+        });
+
+        child.on('error', (error) => {
+            console.log('child process exited with ' +
+                        `error ${error}`);
+            reject(error);
+        });
+    });
+
+
+    promise.then((code) => {
+        socket.emit('execution', logs);
+    }).catch((error) => {
+        console.log(error);
+    });
 
 }
 
@@ -50,7 +110,7 @@ const execute  = (name,spec) => {
 
 const server = new Server({
     cors: {
-        origin: "http://localhost:3000"
+        origin: "*"
     }
 });
 
@@ -61,6 +121,6 @@ server.on('connection', (socket) => {
     console.log('client connected');
     socket.on('execute', (data) => {
         console.log('execute event received');
-        execute(data.name, data.data);
+        execute(data.name, data.data, socket);
     });
 });

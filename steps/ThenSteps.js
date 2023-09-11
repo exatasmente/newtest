@@ -165,6 +165,12 @@ Then('I expect {string} to be {string}', async (a, b) => {
     }
 });
 
+Then('I expect {string} equals to {string}', async (a, b) => {
+    if (a !== b) {
+        throw new Error(`Expected ${a} to be ${b}`);
+    }
+});
+
 Then('I expect {string} to be eq {string}', async (a, b) => {
     if (a !== b) {
         throw new Error(`Expected ${a} to be ${b}`);
