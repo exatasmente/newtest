@@ -39,9 +39,48 @@ const updateExecution = (name, options) => {
     }
 }
 
+const steps = []
 
+const generateSpec = (nodes) => {
+    const {gherkinFactory} = require('./gherkinBuilder');
+    let spec = '';
 
-const execute  = (name,spec, socket) => {
+    for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+        
+        const {name, config} = node;
+        const g = gherkinFactory()
+            .make(name, config)
+        spec += g  + '\n';
+
+        steps.push({id : node.id, step : g.replaceAll(' ', '')});
+        console.log('steps', g, node.id);
+        
+    }
+
+    return spec;
+    
+}
+
+const getNodeId = (step) => {
+    if (!step) {
+        return null;
+    }
+
+    step = step.replaceAll(' ', '');
+
+    const node = steps.find(s => s.step === step);
+
+    if (!node) {
+        return null;
+    }
+
+    return node.id;
+}
+
+const execute  = (data, socket) => {
+    const name = data.name;
+    const spec = generateSpec(data.nodes);
     const fs = require('fs');
     const specfile = './' + name + '.feature';
     let fileContent = fs.readFileSync(`./feature.feature`, 'utf8');
@@ -50,9 +89,10 @@ const execute  = (name,spec, socket) => {
 
     console.log(fileContent);
     fs.writeFileSync(specfile, fileContent);
-
+    const htmlPath = `./${name}.html`;
+    const screenshotPath = `./screenshot.png`;
     const { spawn } = require('child_process');
-    const child = spawn('node', ['./bin/autokin', '-e', '--customSteps', 'steps.js', '--specs', specfile], options);
+    const child = spawn('node', ['./bin/autokin', '-e', '--customSteps', 'steps.js', '--specs', specfile, '--html', htmlPath, '--screenshotPath', screenshotPath], options);
     const logs = [];
     const promise = new Promise((resolve, reject) => {
         child.on('message', (message) => {
@@ -80,6 +120,9 @@ const execute  = (name,spec, socket) => {
                 });
             }
 
+
+            data.id = getNodeId(data.step);
+            
             socket.emit('update', data);
 
         })
@@ -87,6 +130,8 @@ const execute  = (name,spec, socket) => {
         child.on('exit', (code, signal) => {
             console.log('child process exited with ' +
                         `code ${code} and signal ${signal}`);
+
+                
             resolve(code);
         });
 
@@ -99,7 +144,9 @@ const execute  = (name,spec, socket) => {
 
 
     promise.then((code) => {
-        socket.emit('execution', logs);
+        socket.emit('html-resume', {
+            html : fs.readFileSync(htmlPath, 'utf8').replace('__SCREENSHOT__', fs.readFileSync(screenshotPath, 'base64')),
+        });
     }).catch((error) => {
         console.log(error);
     });
@@ -121,6 +168,6 @@ server.on('connection', (socket) => {
     console.log('client connected');
     socket.on('execute', (data) => {
         console.log('execute event received');
-        execute(data.name, data.data, socket);
+        execute(data, socket);
     });
 });

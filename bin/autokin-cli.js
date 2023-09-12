@@ -7,7 +7,7 @@
 const path = require('path');
 const fs = require('fs');
 
-module.exports.default = function ({ specs, tags, formatter, junit, variables, time, html, ci, customSteps }) {
+module.exports.default = function ({ specs, tags, formatter, junit, variables, time, html, ci, customSteps, screenshotPath }) {
     let autokinPath = path.resolve(__dirname, '../lib/');
 
     if (customSteps && !fs.existsSync(__dirname + '/../' + customSteps)) throw new Error(`Custom steps path ${__dirname  +'/../' + customSteps} does not exist.`);
@@ -33,6 +33,8 @@ module.exports.default = function ({ specs, tags, formatter, junit, variables, t
 
     cliOptions = cliOptions.concat([`--require=${__dirname}/../custom-steps`]);
     if (customSteps) cliOptions = cliOptions.concat([`--require=${__dirname+ '/../'+ customSteps}`]);
+
+    if (screenshotPath) cliOptions = cliOptions.concat([`--require=${autokinPath}/autokin-screenshot.js`]);
 
     if (html)  { 
         const targetHtmlPath = typeof (html) == 'boolean' ? 'reports/autokin-result.html' : html;

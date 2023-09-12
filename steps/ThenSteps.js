@@ -28,15 +28,25 @@ Then('I expect content {string} not contains {string}', async (selector,value, W
 });
 
 Then('I expect request {string} to {string}', async (method, url, WebBuilder) => {
+    Promise.resolve(setTimeout(async () => {
+        const ok = await WebBuilder.listenRequest({
+            method,
+            url,
 
+        });
+
+        if (!ok) {
+            throw new Error(`Expected request ${method} ${url} but it was not found`);
+        }
+    }, 30000));
 });
 
 Then('I expect response {string} to {string} with status code {string}', async (method, url, status, WebBuilder) => {
-    const ok = await WebBuilder.waitForResponse({
+    const ok = await WebBuilder.waitForResponse(JSON.stringify({
         method,
         url,
         status,
-    });
+    }));
 
     if (!ok) {
         throw new Error(`Expected response ${method} ${url} with status code ${statusCode} but it was not found`);
@@ -113,7 +123,20 @@ Then('I should see text {string}', async (selector, WebBuilder) => {
 });
 
 Then('I expect {string} exists', async (selector, WebBuilder) => {
-    const exists = await WebBuilder.exists(selector);
+    const exists =  await waitFor( () => {
+        return WebBuilder.exists(selector);
+    }, 15000);
+
+    if (!exists) {
+        throw new Error(`Expected to see ${selector} but it does not exists`);
+    }
+    
+});
+
+Then('I expect {string} not exists', async (selector, WebBuilder) => {
+    const exists =  await waitFor( () => {
+        return WebBuilder.exists(selector) === false;
+    }, 15000);
     
     if (!exists) {
         throw new Error(`Expected to see ${selector} but it does not exists`);
@@ -141,21 +164,55 @@ Then('I should not see {string}', async (selector, WebBuilder) => {
     
 });
 
+const waitFor = async (callback, timeoutMs) => {
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            reject();
+        }, timeoutMs);
+
+        const interval = setInterval(async () => {
+            const result = await callback();
+            if (result) {
+                clearTimeout(timeout);
+                clearInterval(interval);
+                resolve(result);
+            }
+        }, 500);
+
+    
+    })
+
+}
+
+
 Then('I expect {string} is visible', async (selector, WebBuilder) => {
-    const result = await WebBuilder.page.$eval(selector, el => {
-        const computedStyle = window.getComputedStyle(el);
-        return computedStyle && computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden' && computedStyle.opacity !== '0';
-    }, selector);
+    const result = await waitFor(async () => {
+        return await WebBuilder.page.$eval(selector, el => {
+            const computedStyle = window.getComputedStyle(el);
+            return computedStyle && computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden' && computedStyle.opacity !== '0';
+        }, selector);
+
+    }, 15000);
 
     if (!result) {
         throw new Error(`Expected ${selector} to be visible`);
     }
 
-
-
 });
 
-Then('I expect to {string} be hidden', async (selector, WebBuilder) => {
+Then('I expect {string} is not visible', async (selector, WebBuilder) => {
+    const result = await waitFor(async () => {
+        return await WebBuilder.page.$eval(selector, el => {
+            const computedStyle = window.getComputedStyle(el);
+            return computedStyle && computedStyle.display !== 'none' && computedStyle.visibility !== 'hidden' && computedStyle.opacity !== '0';
+        }, selector) === false;
+
+    }, 15000);
+
+    if (!result) {
+        throw new Error(`Expected ${selector} to be not visible`);
+    }
+
 });
 
 
@@ -183,6 +240,11 @@ Then('I expect {string} contains {string}', async (a, b) => {
     }
 });
 
+Then('I expect {string} not contains {string}', async (a, b) => {
+    if (a.includes(b)) {
+        throw new Error(`Expected ${a} to not contains ${b}`);
+    }
+});
 
 Then('I expect {string} to not be {string}', async (a, b) => {
     if (a === b) {
