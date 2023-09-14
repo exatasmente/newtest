@@ -115,14 +115,14 @@ When('I type {string} {string}', async (value, selector, WebBuilder) => {
     ]
 });    
 
-When('I select {string} {string}', async (value, selector, WebBuilder) => {
+When('I select {string} in {string}', async (value, selector, WebBuilder) => {
     await WebBuilder.select(selector, value);
 }, {
     match : {
         action: 'select',
     },
     vars : [
-        { search : 'string', replace : 'value' },
+        { search : 'string', replace : 'text' },
         {
             search : 'string',
             replace : (config) => {

@@ -1,4 +1,5 @@
 'use strict';
+const { selectors } = require('playwright');
 const { Then } = require('../custom-steps');
 const { expressionsFactory, varsBuilder } = require('../gherkinBuilder');
 
@@ -25,7 +26,7 @@ const waitFor = async (callback, timeoutMs) => {
 }
 
 
-const replaceContentHandler = ({showAttribute, attributeValue, selectorType, selector}) => {
+const replaceContentHandler = ({showAttribute, attributeValue, selectorType, selector, assertType}) => {
     let expression = null
     if (selectorType === 'text') {
         expression = `$findText`
@@ -38,14 +39,16 @@ const replaceContentHandler = ({showAttribute, attributeValue, selectorType, sel
             .make(expression, [selector])
     }
 
-    expression = expression ?? '{selector}'
-    
+    expression = expression ?? selector
+
     if (showAttribute && attributeValue) {     
-        
         expression = expressionsFactory()
             .make('$getElAttr', [expression , attributeValue])
+    } else if (assertType === 'equals' || assertType === 'contains' || assertType === 'not-contains') {
+        expression = expressionsFactory()
+            .make('$elementValue', [expression])
     }
-
+    
     return expression
     
 }
@@ -56,10 +59,18 @@ const replaceContentTimeoutHandler = (config) => {
     timeout = parseInt(timeout) ?? 15000
 
     expression = replaceContentHandler(config)
+    console.log('expression', expression, config)
+    const assertType = config.assertType
     
-    return expression !== '{selector}'
-    ?  `$wait(${expression};${timeout})`
-    : `$elementValue({selector};${timeout})`
+    if (assertType === 'visible' || assertType === 'not-visible') {
+        return config.selector;
+    } else if (expression !== config.selector) {
+        return `$wait(${expression};${timeout})`
+    }
+    
+        
+    
+    return `$elementValue({selector};${timeout})`
     
 }
 
@@ -102,7 +113,7 @@ Then('I wait request {string} to {string} or timeout {int}', async (method, url,
     vars : [
         { search : 'string', replace : 'method' },
         { search : 'string', replace : 'url' },
-        { search : 'string', replace : ({timeout}) => timeout ?? '15000' },
+        { search : 'int', replace : ({timeout}) => parseInt(timeout) ?? 15000 },
     ]
 
 });
@@ -145,7 +156,7 @@ Then('I wait for response {string} to {string} with status code {string} or time
         { search : 'string', replace : 'method' },
         { search : 'string', replace : 'url' },
         { search : 'string', replace : 'statuscode' },
-        { search : 'string', replace : ({timeout}) => timeout ?? 15000 },
+        { search : 'int', replace : ({timeout}) => parseInt(timeout) ?? 15000 },
     ]
 });
 
@@ -436,7 +447,7 @@ Then('I wait until be on {string} or timeout {int} ms', async (url, WebBuilder) 
     match : {action : 'assert', actionType : 'browser'}, 
     vars : [
         { search : 'string', replace : 'url' },
-        { search : 'string', replace : ({timeout}) => timeout ?? 15000 },
+        { search : 'int', replace : ({timeout}) => parseInt(timeout) ?? 15000 },
     ]
 });
 
@@ -463,7 +474,7 @@ Then('I wait until {string} is visible or timeout {int} ms', async (selector,tim
     match : {action : 'wait', actionType : 'content', assertType : 'visible'},
     vars : [
         { search : 'string', replace : replaceContentTimeoutHandler },
-        { search : 'string', replace : ({timeout}) => timeout ?? 15000 },
+        { search : 'int', replace : ({timeout}) => parseInt(timeout) ?? 15000 },
     ]
 });
 
@@ -489,7 +500,7 @@ Then('I wait until {string} is not visible or timeout {int} ms', async (selector
     match : {action : 'wait', actionType : 'content', assertType : 'not-visible'},
     vars : [
         { search : 'string', replace : replaceContentTimeoutHandler },
-        { search : 'string', replace : ({timeout}) => timeout ?? 15000 },
+        { search : 'int', replace : ({timeout}) => parseInt(timeout) ?? 15000 },
     ]
 });
 
@@ -502,7 +513,7 @@ Then('I wait {string} contains {string}', async (a, b) => {
     vars : [
         { search : 'string', replace : replaceContentTimeoutHandler },
         { search : 'string', replace : 'value' },
-        { search : 'string', replace : ({timeout}) => timeout ?? 15000 },
+        { search : 'int', replace : ({timeout}) => parseInt(timeout) ?? 15000 },
     ]
 });
 
@@ -515,7 +526,7 @@ Then('I wait {string} not contains {string}', async (a, b) => {
     vars : [
         { search : 'string', replace : replaceContentTimeoutHandler },
         { search : 'string', replace : 'value' },
-        { search : 'string', replace : ({timeout}) => timeout ?? 15000 },
+        { search : 'int', replace : ({timeout}) => parseInt(timeout) ?? 15000 },
     ]
 });
 
@@ -529,7 +540,7 @@ Then('I wait until {string} equals to {string} or timeout {int} ms', async (a, b
     vars : [
         { search : 'string', replace : replaceContentTimeoutHandler },
         { search : 'string', replace : 'value' },
-        { search : 'string', replace : ({timeout}) => timeout ?? 15000 },
+        { search : 'int', replace : ({timeout}) => parseInt(timeout) ?? 15000 },
     ]
 });
 
@@ -543,7 +554,7 @@ Then('I wait {string} to not be eq {string}', async (a, b) => {
     vars : [
         { search : 'string', replace : replaceContentTimeoutHandler },
         { search : 'string', replace : 'value' },
-        { search : 'string', replace : ({timeout}) => timeout ?? 15000 },
+        { search : 'int', replace : ({timeout}) => parseInt(timeout) ?? 15000 },
     ]
 });
 
@@ -556,7 +567,7 @@ Then('I wait {string} to be greater than {string}', async (a, b) => {
     vars : [
         { search : 'string', replace : replaceContentTimeoutHandler},
         { search : 'string', replace : 'value' },
-        { search : 'string', replace : ({timeout}) => timeout ?? 15000 },
+        { search : 'int', replace : ({timeout}) => parseInt(timeout) ?? 15000 },
     ]
 })
 
@@ -569,7 +580,7 @@ Then('I wait {string} to be less than {string}', async (a, b) => {
     vars : [
         { search : 'string', replace : replaceContentTimeoutHandler },
         { search : 'string', replace : 'value' },
-        { search : 'string', replace : ({timeout}) => timeout ?? 15000 },
+        { search : 'int', replace : ({timeout}) => parseInt(timeout) ?? 15000 },
     ]
 })
 
@@ -582,7 +593,7 @@ Then('I wait {string} to be greater than or equal to {string}', async (a, b) => 
     vars : [
         { search : 'string', replace : replaceContentTimeoutHandler },
         { search : 'string', replace : 'value' },
-        { search : 'string', replace : ({timeout}) => timeout ?? 15000 },
+        { search : 'int', replace : ({timeout}) => parseInt(timeout) ?? 15000 },
     ]
 })
 
@@ -595,6 +606,6 @@ Then('I wait {string} to be less than or equal to {string} until {int} ms', asyn
     vars : [
         { search : 'string', replace : replaceContentTimeoutHandler },
         { search : 'string', replace : 'value' },
-        { search : 'string', replace : ({timeout}) => timeout ?? 15000 },
+        { search : 'int', replace : ({timeout}) => parseInt(timeout) ?? 15000 },
     ]
 })

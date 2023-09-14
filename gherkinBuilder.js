@@ -1,70 +1,75 @@
-const {FunctionsStorage, getExpession} = require('./custom-steps');
-
-const getGherkin = (type, config) => {
-    let result = {valid : false, vars : {}};
+const {FunctionsStorage, getExpression} = require('./custom-steps');
+const getOrder = (type) => {
+    switch (type) {
+        case 'Given':
+            return 2;
+        case 'When':
+            return 1;
+        case 'Then':
+            return 0;
+    }
+}
+const getGherkin = (config, ids = []) => {
+    const steps = [];
     
     for (func of Object.keys(FunctionsStorage)) {
-        result = FunctionsStorage[func](config);
+        const result = FunctionsStorage[func](config);
         if (result.valid) {
+            console.log(result)
             result.step = func;
-            break;
+            steps.push({
+                step : func,
+                order : result.order ?? getOrder(result.type),
+                vars : result.vars,
+                type : result.type,
+            });
         }
     }
 
-    if (!result.valid) {
-        return ''
+    if (steps.length === 0) {
+        return {
+            gherkins : [],
+            ids,
+        };
     }
 
     
-    const {vars} = result;
-    let step = result.step;
+    const gherkins = steps.map(result => {;
 
-    vars.forEach(({search, replace})=> {
-        if (typeof replace !== 'function'){
-            if (typeof replace === 'string') {
-                replace =`"{${replace}}"`
-            }
-        } else {        
-            replace = replace(config)
+        const {vars, order, type} = result;
+        let step = result.step;
 
-            if (typeof replace === 'string') {
-                replace =`"${replace}"`
+        vars.forEach(({search, replace})=> {
+            if (typeof replace !== 'function'){
+                if (typeof replace === 'string') {
+                    replace =`"{${replace}}"`
+                }
+            } else {        
+                replace = replace(config)
+
+                if (typeof replace === 'string') {
+                    replace =`"${replace}"`
+                }
+                
             }
+
             
+
+            step = step.replace(`{${search}}`, replace);
+        });
+        return {
+            step :  gherkinBuilder()
+                [type.toLowerCase()](step, config)
+                .build(),
+            order,
         }
-
-        
-
-        step = step.replace(`{${search}}`, replace);
     });
-    return gherkinBuilder()
-        [type](step, config)
-        .build()
+
+    return {gherkins, ids};
 }
-const browserGherkin = (config) => {
-    const action = config.action
-    let type = 'given'
-    
-    if (action === 'screenshot') {
-        type = 'then'
-    }
-    
-    return getGherkin(type, config);
-}
-
-const inputGherkin =  (config) => {
-    return getGherkin('when', config);
-}
-
-
-const mouseGherkin = (config) => {
-    return getGherkin('when', config);
-}
-
-
-const verificationGherkin = (config) => {
+const verificationGherkin = (config, ids) => {
     config.method = config.method ?  config.method.toUpperCase() : config.method;
-    return getGherkin('then', config);
+    return getGherkin(config, ids);
     
 }
 
@@ -152,26 +157,38 @@ const gherkinBuilder = () => {
 const expressionsFactory = () => {
     return {
         make(name, values) {
-            const expression = getExpession(name)
+            const expression = getExpression(name)
             if (!expression) {
                 throw new Error(`Expression ${name} not found`)
             }
 
             let separator = expression.attributeSeparator
             let attributes = expression.variables
-            
-            let result = name + '('
-            for (let i = 0; i < attributes.length; i++) {
-                let param = attributes[i]
-                if (typeof values === 'array') {
-                    param = i
+            const getValue = (param, attribute) => {
+                if (values.push && typeof values.push === 'function') {
+                    return values[param]
+                } 
+                
+                if (attribute.startsWith('{') && attribute.endsWith('}')) {
+                    attribute = attribute.substring(1, attribute.length - 1)
                 }
 
+                console.log(attribute, param, values)
+                
+                
+                return values[attribute]
+            }
+            let result = name + '('
+            for (let i = 0; i < attributes.length; i++) {
+                const value = getValue(i, attributes[i])
 
-                const value = values[param] || ''
+                if (!value) {
+                    throw new Error(`Expression ${name} param ${i} not found`)
+                }
                 result = result + `${value}` + (i < attributes.length - 1 ? separator : '')
             }
 
+            console.log(result, attributes, values)
             result = result + ')'
 
             return result
@@ -205,20 +222,20 @@ const gherkinFactory = () => {
     
 
     const gherkin = {
-        'Navegador' :  browserGherkin,
+        'Navegador' :  getGherkin,
         'Verificação' : verificationGherkin,
-        'Entrada' : inputGherkin,
-        'mouse' : mouseGherkin,
+        'Entrada' : getGherkin,
+        'mouse' : getGherkin,
     }
     return {
-        make(type, config) {
+        make(type, config, ids) {
             const factory = gherkin[type]
 
             if (!factory) {
                 throw new Error(`Gherkin ${type} not found`)
             }
 
-            return factory(config)
+            return factory(config, ids)
                 
         }
     }

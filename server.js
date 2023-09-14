@@ -39,10 +39,11 @@ const updateExecution = (name, options) => {
     }
 }
 
-const steps = []
-
+let steps = [];
 const generateSpec = (nodes) => {
+    steps = [];
     (() => {
+        require('./steps/Expression')
         require('./steps/GivenSteps')
         require('./steps/WhenSteps')
         require('./steps/ThenSteps')
@@ -50,18 +51,49 @@ const generateSpec = (nodes) => {
 
     const {gherkinFactory} = require('./gherkinBuilder');
     let spec = '';
-
+    
+    let ids = [];
     for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i];
         
         const {name, config} = node;
         const g = gherkinFactory()
-            .make(name, config)
-        spec += g  + '\n';
+            .make(name, config, ids)
+            
+        const gherkins = g.gherkins;
+        if (gherkins.length === 0) {
+            console.log(`No gherkin found for ${name}`, config);
+            continue;
+        }
 
-        steps.push({id : node.id, step : g.replaceAll(' ', '')});
+        ids = [...ids, ...g.ids];
+
+        steps.push({id : node.id, steps : gherkins});
         
     }
+
+    spec = steps.map(s => s.steps)
+    .reduce((acc, steps) => {
+        acc = [...acc, ...steps]
+        return acc
+    }, [])
+    .sort((a, b) => {
+        if (b.order === undefined) {
+            return -1;
+        }
+
+        if (a.order === undefined) {
+            return 1;
+        }
+
+        if (b.order === a.order) {
+            return 0;
+        }
+
+        return b.order > a.order ? 1 : -1;
+    }).map(s => s.step).join('\n');
+
+    
 
     return spec;
     

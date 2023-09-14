@@ -111,12 +111,19 @@ const dependencyInjectionCallback = (fn) => {
 
 }
 
-const registerFunction = (pattern, {match, vars}) => {
+const registerFunction = (pattern,type, {match, vars, order, id}) => {
     if (!match || !vars) {
         return
     }
+    id = id || JSON.stringify(match) + JSON.stringify(vars) + order;
 
     FunctionsStorage[pattern] = (config) => {
+        if (typeof match === 'function') {
+            const valid = match(config);
+            
+            return {valid, vars, order, id, type}
+        }
+
         const matchKeys = Object.keys(match);
         const valid = matchKeys.filter((key) => {
             const value = match[key];
@@ -124,7 +131,7 @@ const registerFunction = (pattern, {match, vars}) => {
             return value === configValue;
         }).length === matchKeys.length;
 
-        return {valid, vars}
+        return {valid, vars, order, id, type}
     }
 }
 
@@ -452,7 +459,7 @@ const addStep = (type, step, {callback, handler}) => {
         throw new Error(`Step ${step} already exists`);
     }
 
-    registerFunction(step, handler);
+    registerFunction(step, type, handler);
     
     steps[type][step] = callback
 }

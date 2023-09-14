@@ -149,7 +149,7 @@ Expression('$elementValue:{selector}', async (selector, WebBuilder) => {
 }, ';');
 
 
-Expression('$findText:{text}', async (text, WebBuilder) => {
+Expression('$findText:{text}', async (text) => {
     const xpath = "//*[contains(text(), '" + text + "')]";
     const result = await ApplyExpression(`$xPath(${xpath})`)
     
