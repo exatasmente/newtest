@@ -11,6 +11,7 @@ const {After} = require('cucumber');
 
 After(async function () {
     const result = await WebBuilder.screenshot('screenshot');
+    await WebBuilder.close();
 });
 
 
