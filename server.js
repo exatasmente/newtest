@@ -42,6 +42,12 @@ const updateExecution = (name, options) => {
 const steps = []
 
 const generateSpec = (nodes) => {
+    (() => {
+        require('./steps/GivenSteps')
+        require('./steps/WhenSteps')
+        require('./steps/ThenSteps')
+    })()
+
     const {gherkinFactory} = require('./gherkinBuilder');
     let spec = '';
 
@@ -54,7 +60,6 @@ const generateSpec = (nodes) => {
         spec += g  + '\n';
 
         steps.push({id : node.id, step : g.replaceAll(' ', '')});
-        console.log('steps', g, node.id);
         
     }
 
@@ -95,6 +100,14 @@ const execute  = (data, socket) => {
     const child = spawn('node', ['./bin/autokin', '-e', '--customSteps', 'steps.js', '--specs', specfile, '--html', htmlPath, '--screenshotPath', screenshotPath], options);
     const logs = [];
     const promise = new Promise((resolve, reject) => {
+        child.stdout.on('data', (data) => {
+            console.log(`stdout: ${data}`);
+        });
+
+        child.stderr.on('data', (data) => {
+            console.log(`stderr: ${data}`);
+        });
+
         child.on('message', (message) => {
             const {type, data} = message;
 
@@ -108,7 +121,6 @@ const execute  = (data, socket) => {
             }
 
             if (type === 'test-step-finished') {
-                console.log('step finished', JSON.stringify(data));
                 logs.push(data);
             }
 
@@ -147,6 +159,11 @@ const execute  = (data, socket) => {
         socket.emit('html-resume', {
             html : fs.readFileSync(htmlPath, 'utf8').replace('__SCREENSHOT__', fs.readFileSync(screenshotPath, 'base64')),
         });
+
+        console.log('code', code);
+        fs.unlinkSync(specfile);
+        fs.unlinkSync(htmlPath);
+        fs.unlinkSync(screenshotPath);
     }).catch((error) => {
         console.log(error);
     });

@@ -7,17 +7,40 @@ const openPage = async (url, WebBuilder) => {
     await WebBuilder.page.goto(url);
 
 };
+const openPageBuilderArgs = {
+    match : {
+        action: 'navigate',
+    },
+    vars : [
+        { search : 'string', replace : 'url' },
+    ]
+}
 
 Given('I on page {string}', async (page, WebBuilder) => {
     await openPage(page, WebBuilder);   
-});
+}, openPageBuilderArgs);
 
 Given('I emulate device {string}', async (device, WebBuilder) => {
     await WebBuilder.emulate(device);
+}, {
+    match : {
+        action: 'emulate',
+    },
+    vars : [
+        { search : 'string', replace : 'device' },
+    ]
 });
 
 Given('I set the config {string} to {string}', async (setting, value, WebBuilder) => {
     WebBuilder.setConfig(setting, value);
+}, {
+    match : {
+       action: 'setConfig',
+    },
+    vars : [
+        { search : 'string', replace : 'setting' },
+        { search : 'string', replace : 'value' },
+    ]
 });
 
 Given('I use the config file {string}', async (configFile, WebBuilder) => {
@@ -31,19 +54,19 @@ Given('I use the config', async (config, WebBuilder) => {
 });
 Given('I open page {string}', async (page, WebBuilder) => {
     await openPage(page, WebBuilder);
-});
+}, openPageBuilderArgs);
 
 Given('I open {string}', async (page, WebBuilder) => {
     await openPage(page, WebBuilder);
-});
+}, openPageBuilderArgs);
 
 Given('I navigate to {string}', async (page, WebBuilder) => {
     await openPage(page, WebBuilder);
-});
+}, openPageBuilderArgs);
 
 Given('I navigate {string}', async (page, WebBuilder) => {
     await WebBuilder.page.goto(page);
-});
+}, openPageBuilderArgs);
 
 Given('I define the variables', async (variables, Store) => {
     const vars = JSON.parse(variables);

@@ -19,6 +19,8 @@ const getResolvedExpressionValue = (expression) => {
 }
 
 const setResolvedExpressionValue = (expression, value) => {
+
+        
     if (expression.startsWith('$') === false ) {
         return;
     }   
@@ -31,10 +33,9 @@ const setResolvedExpressionValue = (expression, value) => {
 }
 
 
-
-
 const Store = require('./lib/autokin-store');
 const {WebBuilder} = require('./lib/web/autokin-web');
+
 
 class DependencyInjectionContainer {
     constructor(callback = null) {
@@ -98,7 +99,7 @@ const dependencyInjectionCallback = (fn) => {
             if (app.has(arg)) {
                 applyArgsStr += `args.push(app.get('${arg}'));`
             } else {
-                applyArgsStr += `expValue = await ApplyExpression(${arg}); setResolvedExpressionValue(${arg}, expValue); args.push(expValue);`
+                applyArgsStr += `expValue = await ApplyExpression(${arg}); if (expValue !== ${arg}) { setResolvedExpressionValue(${arg}, expValue);} args.push(expValue);`
                 newArgs.push(`${arg}`);
             }
         });
@@ -110,35 +111,49 @@ const dependencyInjectionCallback = (fn) => {
 
 }
 
-const extractCumcumberArgs = (pattern) => {
-    // example of pattern: I wait until {string}
-    // the result of this function should be: ['string']
-    const args =  pattern.match(/{(.*?)}/g);
-
-    if (!args) {
-        return [];
+const registerFunction = (pattern, {match, vars}) => {
+    if (!match || !vars) {
+        return
     }
 
-    return args.map(arg => {
-        return arg.substring(1, arg.length - 1);
-    });
-    
+    FunctionsStorage[pattern] = (config) => {
+        const matchKeys = Object.keys(match);
+        const valid = matchKeys.filter((key) => {
+            const value = match[key];
+            const configValue = config[key];
+            return value === configValue;
+        }).length === matchKeys.length;
+
+        return {valid, vars}
+    }
 }
 
 const NewGiven = (pattern, fn) =>{
-    FunctionsStorage[pattern] = extractCumcumberArgs(pattern);
+    try {
     const callback = dependencyInjectionCallback(fn);
     Given(pattern, callback);
+    } catch (e) {
+    
+    }
 };
 
 const NewThen = (pattern, fn) => {
+    try {
     const callback = dependencyInjectionCallback(fn);
     Then(pattern, callback);
+    } catch (e) {
+    
+    }
 };
 
 const NewWhen = (pattern, fn) => {
+   
+    try {
     const callback = dependencyInjectionCallback(fn);
     When(pattern, callback);
+    } catch (e) {
+
+    }
 };
 
 const Expression = (pattern, fn, attributeSeparator = ',', handleExpressionArg = false) => {
@@ -146,7 +161,8 @@ const Expression = (pattern, fn, attributeSeparator = ',', handleExpressionArg =
     // another example: $fixture:{string}
 
     
-    let variablesStr = pattern.split(':', 2)[1];
+    let [name, variablesStr] = pattern.split(':', 2);
+    name = name.trim();
 
     const expression = {
         regex: null,
@@ -171,7 +187,7 @@ const Expression = (pattern, fn, attributeSeparator = ',', handleExpressionArg =
     const regex = pattern.split(':')[0] + ':(.*)' ;
     expression.regex = new RegExp(regex);
 
-    ExpressionsStoreage[pattern] = expression;
+    ExpressionsStoreage[name] = expression;
 }
 
 const VarsStorage = {
@@ -241,6 +257,11 @@ const extractVariables = async (pattern, expression) => {
     return variables;
     
 }
+
+const getExpression = (expressionName) => {
+    return ExpressionsStoreage[expressionName];
+}
+
 const ApplyExpression = async (pattern, maxLoops = 100) => {
     if (maxLoops === 0) {
         throw new Error('Max loops reached ' + pattern);
@@ -252,22 +273,20 @@ const ApplyExpression = async (pattern, maxLoops = 100) => {
     
     const expressionName = pattern.substring(0, pattern.indexOf('('));
     const variablesStr = pattern.substring(pattern.indexOf('(') + 1, pattern.lastIndexOf(')'));
-    const expressionKey = Object.keys(ExpressionsStoreage).find(key => {
-        return key.split(':')[0] === expressionName;
-    });
+    const expression = getExpression(expressionName);
     
     
 
-    if (!expressionKey) {
+    if (!expression) {
         return pattern;
     }
 
 
-    const expression = ExpressionsStoreage[expressionKey];
+    
     let variables = await extractVariables(variablesStr, expression);    
     const callbackVariables = expression.callback.toString().match(/\((.*?)\)/)[1].split(',').map(arg => arg.trim());
 
-    callbackVariables.map((variable, index) => {
+    callbackVariables.map((variable) => {
         if (app.has(variable)) {
             variables.push(app.get(variable));
         }
@@ -337,85 +356,6 @@ Expression('$asString:{value}', (value) => {
     return value.toString();
 })
 
-Expression('$str:{value};{action};{options}', (value, action, options) => {
-    
-    if (action === 'empty') {
-        return value === '';
-    }
-
-    if (action === 'replace') {
-        let [search, replace] = options.split(',');
-        if (replace === 'empty') {
-            replace = '';
-        }
-        if (search === 'empty') {
-            search = '';
-        }
-
-        if (search === 'space') {
-            search = ' ';
-        }
-
-        if (replace === 'space') {
-            replace = ' ';
-        }
-
-        if (search === 'newline') {
-            search = '\n';
-        }
-
-        if (replace === 'newline') {
-            replace = '\n';
-        }
-        return value.replaceAll(search, replace);
-    }
-
-    if (action === 'split') {
-        const [separator, index] = options.split(',');
-        return value.split(separator)[index];
-    }
-
-    if (action === 'trim') {
-        return value.trim();
-    }
-
-    if (action === 'substr') {
-        const [start, end] = options.split(',');
-        return value.substr(start, end);
-    }
-
-    if (action === 'substring') {
-        const [start, end] = options.split(',');
-        return value.substring(start, end);
-    }
-
-    if (action === 'length') {
-        return value.length;
-    }
-
-    if (action === 'concat') {
-        const [str1, str2] = options.split(',');
-        return str1 + value + str2;
-    }
-
-    if (action === 'startsWith') {
-        return value.startsWith(options);
-    }
-
-    if (action === 'endsWith') {
-        return value.endsWith(options);
-    }
-
-    if (action === 'includes' || action === 'contains') {
-        return value.includes(options);
-    }
-
-    if (action === 'manipulate') {
-        const [manipulation, ...args] = options.split(',');
-        return value[manipulation](...args);
-    }
-}, ';')
-
 Expression('$regexReplace:{regex};{value}', (regex, value) => {
     if (!value) {
         return value;
@@ -444,19 +384,6 @@ Expression('$log:{value}', (value) => {
     console.log(`\n ---------- \n ${value} \n ---------- \n`);
     return value;
 })
-
-Expression('$call:{object};{attribute}', async (object, fn) => {
-    if (typeof object[fn] === 'function') {
-        return await object[fn]();
-    }
-
-    return object[fn];
-}, ';')
-
-Expression('$concat:{string},{string}', (a, b) => {
-    return a + b;
-}, ';')
-
 
 Expression('$get:{attribute}', (attribute) => {
     return Store.get(attribute);
@@ -509,12 +436,65 @@ Expression('$dateTimestamp:{string}', (value) => {
     return new Date(value).getTime();
 })
 
+
+const steps = {
+    Given : {},
+    When : {},
+    Then : {}
+}
+
+const addStep = (type, step, {callback, handler}) => {
+    if (!steps[type]) {
+        throw new Error(`Invalid step type ${type}`);
+    }
+
+    if (steps[type][step]) {
+        throw new Error(`Step ${step} already exists`);
+    }
+
+    registerFunction(step, handler);
+    
+    steps[type][step] = callback
+}
+
+const registerStep = (type, step, callback) => {
+    switch (type) {
+        case 'Given':
+            return NewGiven(step, callback);
+        case 'When':
+            return NewWhen(step, callback);
+        case 'Then':
+            return NewThen(step, callback);   
+    }
+
+    throw new Error(`Invalid step type ${type}`);
+            
+}
+
+
+
+const registerSteps =  () => {
+    for (const type in steps) {
+        for (const step in steps[type]) {
+            const callback = steps[type][step];
+            registerStep(type, step, callback);
+        }
+    }
+}
+
 module.exports = {
-    Given : NewGiven,
-    When : NewWhen,
-    Then : NewThen,
+    Given : (pattern, callback, handler = {}) => {
+        addStep('Given', pattern, {callback, handler});
+    },
+    When : (pattern, callback, handler = {}) => {
+        addStep('When', pattern, {callback, handler});
+    },
+    Then : (pattern, callback, handler = {}) => {
+        addStep('Then', pattern, {callback, handler});
+    },
     Expression : Expression,
     ApplyExpression : ApplyExpression,
+    FunctionsStorage : FunctionsStorage,
     ResolveExpressions : (step) => {
         // example of step: I wait until $xPath(//div[@id='id'])
         // first we need to extract the arguments from the step
@@ -547,6 +527,7 @@ module.exports = {
         return {step : resolvedStep, args};
         
     },
-
+    getExpression,
+    registerSteps : registerSteps,
     App : app,
 }

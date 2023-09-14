@@ -1,3 +1,4 @@
+const {registerSteps} = require('./custom-steps');
 const givenSteps = require('./steps/GivenSteps');
 const whenSteps = require('./steps/WhenSteps');
 const thenSteps = require('./steps/ThenSteps');
@@ -9,10 +10,12 @@ const {WebBuilder} = require('./lib/web/autokin-web');
 const {After} = require('cucumber');
 
 After(async function () {
-    await WebBuilder.screenshot('screenshot');
+    const result = await WebBuilder.screenshot('screenshot');
 });
 
 
+
+registerSteps()
 module.exports = {
     givenSteps,
     whenSteps,

@@ -1,3 +1,76 @@
+const {FunctionsStorage, getExpession} = require('./custom-steps');
+
+const getGherkin = (type, config) => {
+    let result = {valid : false, vars : {}};
+    
+    for (func of Object.keys(FunctionsStorage)) {
+        result = FunctionsStorage[func](config);
+        if (result.valid) {
+            result.step = func;
+            break;
+        }
+    }
+
+    if (!result.valid) {
+        return ''
+    }
+
+    
+    const {vars} = result;
+    let step = result.step;
+
+    vars.forEach(({search, replace})=> {
+        if (typeof replace !== 'function'){
+            if (typeof replace === 'string') {
+                replace =`"{${replace}}"`
+            }
+        } else {        
+            replace = replace(config)
+
+            if (typeof replace === 'string') {
+                replace =`"${replace}"`
+            }
+            
+        }
+
+        
+
+        step = step.replace(`{${search}}`, replace);
+    });
+    return gherkinBuilder()
+        [type](step, config)
+        .build()
+}
+const browserGherkin = (config) => {
+    const action = config.action
+    let type = 'given'
+    
+    if (action === 'screenshot') {
+        type = 'then'
+    }
+    
+    return getGherkin(type, config);
+}
+
+const inputGherkin =  (config) => {
+    return getGherkin('when', config);
+}
+
+
+const mouseGherkin = (config) => {
+    return getGherkin('when', config);
+}
+
+
+const verificationGherkin = (config) => {
+    config.method = config.method ?  config.method.toUpperCase() : config.method;
+    return getGherkin('then', config);
+    
+}
+
+
+
+
 const gherkinBuilder = () => {
     return {
         type : '',
@@ -44,8 +117,6 @@ const gherkinBuilder = () => {
         },
 
         build() {
-
-            console.log(this)
             const attributes = this.__extractAttributes()
 
             let result = this.text
@@ -79,42 +150,26 @@ const gherkinBuilder = () => {
 
 }
 const expressionsFactory = () => {
-    const expressions = {
-        '$getElAttr' : { 
-            attributes : ['selector', 'attribute'],
-            separator : ';',
-        },
-        '$findText' : ['text'],
-        '$xPath' : ['xpath'],
-        '$pos' : {
-            attributes : ['x', 'y'],
-            separator : ';'
-        },
-    }
-
     return {
         make(name, values) {
-            let params = expressions[name]
-            let separator = ';'
-
-            if (!params) {
+            const expression = getExpession(name)
+            if (!expression) {
                 throw new Error(`Expression ${name} not found`)
             }
 
-            const isObject = params.length === undefined
-
-            if (isObject) {
-                separator = params.separator
-                params = params.attributes
-            }
-
+            let separator = expression.attributeSeparator
+            let attributes = expression.variables
             
-console.log(params, values)
             let result = name + '('
-            for (let i = 0; i < params.length; i++) {
-                const param = params[i]
-                const value = values[param]
-                result = result + `${value}` + (i < params.length - 1 ? separator : '')
+            for (let i = 0; i < attributes.length; i++) {
+                let param = attributes[i]
+                if (typeof values === 'array') {
+                    param = i
+                }
+
+
+                const value = values[param] || ''
+                result = result + `${value}` + (i < attributes.length - 1 ? separator : '')
             }
 
             result = result + ')'
@@ -123,161 +178,30 @@ console.log(params, values)
         }
     }
 }
+
+const varsBuilder = () => {
+    return {
+        search(name) {
+            this._search = name
+            return this
+        },
+        replace(replace) {
+            this._replace = replace
+            return this
+        },
+
+
+        build() {
+            return {
+                search : this._search,
+                replace : this._replace,
+            }
+        }
+    }
+}
+
+
 const gherkinFactory = () => {
-    const browserGherkin = (config) => {
-        const action = config.action
-        let text = ''
-        if (action === 'navigate') {
-            text = `I navigate to "{url}"`
-        } else if (action === 'emulate') {
-            text = `I emulate "{device}"`
-        } else if (action === 'resize') {
-            text = `I resize the window to {width} x {height}`
-    
-            return gherkinBuilder()
-                .when(text, config)
-                .build()
-                
-        } else {
-            text = `I take a${config.fullPage ? " full" : " "}screenshot "{path}"`
-    
-            return gherkinBuilder()
-                .then(text, config)
-                .build()
-    
-        }
-        
-        return gherkinBuilder()
-            .given(text, config)
-            .build()
-    }
-
-    const verificationGherkin = (config) => {
-        const action = config.action
-        const actionType = config.actionType
-        const assertType = config.assertType
-        let text = ''
-    
-        if (actionType === 'request' || actionType === 'response') {
-            config.method = config.method.toUpperCase()
-    
-            return gherkinBuilder()
-                .then(`I expect ${actionType} "{method}" to "{url}" ${actionType === 'response' ? `with status code "{statuscode}"` : ''}`, config)
-                .build()
-        }
-        
-        let expression = null
-        if (config['selectorType'] === 'text') {
-            expression = expressionsFactory()
-                .make('$findText', { text: config.selector })
-        } else if (config['selectorType'] === 'xpath') {
-            expression = expressionsFactory()
-                .make('$xPath', { selector: config.selector })
-        }
-        
-    
-        if (config.showAttribute && config.attributeValue) {     
-            expression = `$getElAttr(${expression ?? '{selector}'};${config.attributeValue})`
-        }
-    
-        if (expression) {
-            text = `I expect "${expression}"`
-        } else {
-            text = `I expect "{selector}"`	
-        }
-    
-        
-        if (assertType === 'equals') {
-            text += ` equals to "{value}" ${config['case-sensitive'] ? 'case sensitive' : ''}`
-        } else if (assertType === 'contains') {
-            text += ` contains "{value}" ${config['case-sensitive'] ? 'case sensitive' : ''}`
-        } else if (assertType === 'not-contains') {
-            text += ` not contains "{value}" ${config['case-sensitive'] ? 'case sensitive' : ''}`
-        } else if (assertType === 'exists') {
-            text += ' exists'
-        } else if (assertType === 'not-exists') {
-            text += ' not exists'
-        } else if (assertType === 'visible') {
-            text += ' is visible'
-        } else if (assertType === 'not-visible') {
-            text += ' is not visible'
-        } else {
-            text += ' is valid'
-        }
-        
-        return gherkinBuilder()
-            .then(text, config)
-            .build()
-    }
-
-    const inputGherkin =  (config) => {
-        const action = config.action
-        let text = ''    
-    
-        if (action === 'type') {
-            let expression = ''
-            if (config['selectorType'] === 'text') {
-                expression = '$findText'
-            } else if (config['selectorType'] === 'xpath') {
-                expression = '$xPath'
-            }
-            
-            if (expression) {
-                text = `I type "{text}" ${expression}("{selector}")`
-            } else {
-                text = `I type "{text}" "{selector}"`
-            }
-            
-        } else if (action === 'clear') {
-            text = `I clear "{selector}"`
-        } else if (action === 'press') {
-            text = `I press "{key}"`
-        } else {
-            text = `"I type {text}" "{selector}"`
-        }
-    
-        return gherkinBuilder()
-            .when(text, config)
-            .build()
-    }
-    
-
-    const mouseGherkin = (config) => {
-        const action = config.action
-        let text = ''
-        let selector = config.selector
-    
-        if (config.selectorType === 'text') {
-            selector = `$findText(${selector})`
-        } else if (config.selectorType === 'xpath') {
-            selector = `$xPath("${selector}")`
-        } else if (config.selectorType === 'position') {
-            selector = `$pos(${config.x},${config.y})`
-        }
-    
-        if (action === 'click') {
-            text = `I click "{selector}"`
-        } else if (action === 'doubleClick') {
-            text = `I double click "{selector}"`
-        } else if (action === 'rightClick') {
-            text = `I right click "{selector}"`
-        } else if (action === 'move') {
-            text = `I move to "{selector}"`
-        } else if (action === 'hold') {
-            text = `I hold "{button}"`
-        } else if (action === 'release') {
-            text = `I release "{button}"`
-        } else {
-            text = `I hover "{selector}"`
-        }
-    
-    
-        config.selector = selector
-        
-        return gherkinBuilder()
-            .when(text, config)
-            .build()
-    }
     
 
     const gherkin = {
@@ -301,7 +225,9 @@ const gherkinFactory = () => {
 }
 
 
+
 module.exports = {
     gherkinFactory,
     expressionsFactory,
+    varsBuilder,
 }
