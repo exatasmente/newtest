@@ -1,0 +1,29 @@
+{
+  "files": {
+    "main.css": "/static/css/main.ee877c11.chunk.css",
+    "main.js": "/static/js/main.958374ed.chunk.js",
+    "main.js.map": "/static/js/main.958374ed.chunk.js.map",
+    "runtime-main.js": "/static/js/runtime-main.6abf4dd1.js",
+    "runtime-main.js.map": "/static/js/runtime-main.6abf4dd1.js.map",
+    "static/css/2.e6476ee5.chunk.css": "/static/css/2.e6476ee5.chunk.css",
+    "static/js/2.8d8b28e5.chunk.js": "/static/js/2.8d8b28e5.chunk.js",
+    "static/js/2.8d8b28e5.chunk.js.map": "/static/js/2.8d8b28e5.chunk.js.map",
+    "index.html": "/index.html",
+    "precache-manifest.e016cdb2a3ec28eb1302ef1014015b8a.js": "/precache-manifest.e016cdb2a3ec28eb1302ef1014015b8a.js",
+    "service-worker.js": "/service-worker.js",
+    "static/css/2.e6476ee5.chunk.css.map": "/static/css/2.e6476ee5.chunk.css.map",
+    "static/css/main.ee877c11.chunk.css.map": "/static/css/main.ee877c11.chunk.css.map",
+    "static/js/2.8d8b28e5.chunk.js.LICENSE.txt": "/static/js/2.8d8b28e5.chunk.js.LICENSE.txt",
+    "static/media/back.svg": "/static/media/back.6de860f1.svg",
+    "static/media/copy_icon.svg": "/static/media/copy_icon.b61494a5.svg",
+    "static/media/delete_icon.svg": "/static/media/delete_icon.fd97fd86.svg",
+    "static/media/700.css": "/static/media/montserrat-vietnamese-700-normal.3862f69a.woff2"
+  },
+  "entrypoints": [
+    "static/js/runtime-main.6abf4dd1.js",
+    "static/css/2.e6476ee5.chunk.css",
+    "static/js/2.8d8b28e5.chunk.js",
+    "static/css/main.ee877c11.chunk.css",
+    "static/js/main.958374ed.chunk.js"
+  ]
+}
