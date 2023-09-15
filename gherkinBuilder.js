@@ -2,9 +2,9 @@ const {FunctionsStorage, getExpression} = require('./custom-steps');
 const getOrder = (type) => {
     switch (type) {
         case 'Given':
-            return 2;
+            return 0;
         case 'When':
-            return 1;
+            return 0;
         case 'Then':
             return 0;
     }
